@@ -1,0 +1,25 @@
+bbox:
+  south: -1.444
+  west: 36.649
+  north: -1.163
+  east: 37.104
+
+simulation:
+  start_hour: 6
+  end_hour: 20
+  timestep_seconds: 60
+  default_n_agents: 5000
+  default_seed: 42
+
+walk_speed_default_mps: 1.2
+
+paths:
+  graph_cache: data/raw/graph.graphml
+  amenity_cache: data/raw/amenities.json
+  worldpop_tif: data/raw/worldpop_nairobi.tif
+  gtfs_dir: data/raw/gtfs/
+  heat_dir: data/raw/heat/
+
+app:
+  port: 5006
+  title: "Nairobi Heat Exposure ABM"

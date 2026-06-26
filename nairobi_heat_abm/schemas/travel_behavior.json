@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TravelBehaviorParams",
+  "type": "object",
+  "required": ["schema_version", "trip_rate", "mode_split"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "trip_rate": {
+      "type": "object",
+      "required": ["mean", "std"],
+      "properties": {
+        "mean": { "type": "number", "minimum": 0.5, "maximum": 15 },
+        "std":  { "type": "number", "minimum": 0 },
+        "distribution": { "type": "string", "enum": ["normal", "poisson"] }
+      }
+    },
+    "departure_time": {
+      "type": "object",
+      "properties": {
+        "profile":      { "type": "string", "enum": ["bimodal", "uniform", "custom"] },
+        "peak1_hour":   { "type": "number", "minimum": 0, "maximum": 23 },
+        "peak1_weight": { "type": "number", "minimum": 0, "maximum": 1 },
+        "peak2_hour":   { "type": "number", "minimum": 0, "maximum": 23 },
+        "peak2_weight": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "mode_split": {
+      "type": "object",
+      "required": ["walk_only"],
+      "properties": {
+        "walk_only": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "trip_purpose_weights": {
+      "type": "object",
+      "properties": {
+        "work":   { "type": "number", "minimum": 0 },
+        "school": { "type": "number", "minimum": 0 },
+        "market": { "type": "number", "minimum": 0 },
+        "other":  { "type": "number", "minimum": 0 }
+      }
+    },
+    "walk_speed_mps": {
+      "type": "object",
+      "properties": {
+        "mean": { "type": "number", "minimum": 0.3, "maximum": 3.0 },
+        "std":  { "type": "number", "minimum": 0 }
+      }
+    },
+    "transit_wait_tolerance_min": {
+      "type": "object",
+      "properties": {
+        "mean": { "type": "number", "minimum": 1, "maximum": 60 },
+        "std":  { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}
