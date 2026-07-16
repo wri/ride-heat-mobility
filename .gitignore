@@ -15,3 +15,11 @@ data/raw/
 *.graphml
 *.tif
 *.tiff
+
+# Notebook artifacts
+.ipynb_checkpoints/
+notebooks/cache/
+
+# Background reading / local archives, not part of the project
+articles/
+nairobi-abm-plan.zip

@@ -18,11 +18,11 @@ def build_graph(
     if cache_path.exists() and not force_rebuild:
         return ox.load_graphml(cache_path)
 
+    # osmnx 2.x bbox = (left, bottom, right, top) = (west, south, east, north)
     G = ox.graph_from_bbox(
-        north=bbox[2], south=bbox[0], east=bbox[3], west=bbox[1],
+        bbox=(bbox[1], bbox[0], bbox[3], bbox[2]),
         network_type="walk",
         retain_all=False,
-        clean_periphery=True,
     )
     G = ox.add_edge_speeds(G)
     G = ox.add_edge_travel_times(G)

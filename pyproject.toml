@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "nairobi-heat-abm"
 version = "0.1.0"
 description = "Agent-based model of pedestrian mobility and heat exposure in Nairobi"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     # Graph
     "networkx>=3.3",
@@ -22,6 +22,7 @@ dependencies = [
     "numpy>=1.26",
     "scipy>=1.13",
     "pandas>=2.2",
+    "scikit-learn>=1.4",
 
     # UI
     "panel>=1.4",

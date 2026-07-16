@@ -52,12 +52,15 @@ def run(params: SimulationParams) -> ScenarioResult:
 
     spawn_nodes = sample_spawn_nodes(density, transform, G, params.n_agents, rng)
     n_trips = _draw_trip_counts(params.behavior, params.n_agents, rng)
-    departure_ticks = _draw_departure_ticks(params.behavior, params.start_hour,
-                                            params.end_hour, params.timestep_s, rng)
-    dest_nodes = _draw_destinations(amenities, spawn_nodes, params.behavior, G, rng)
+    departure_ticks = _draw_departure_ticks(
+        params.behavior, params.n_agents, params.start_hour,
+        params.end_hour, params.timestep_s, rng,
+    )
+    purposes = _draw_purposes(params.behavior, params.n_agents, rng)
+    dest_nodes = _draw_destinations(amenities, purposes, G, rng)
 
     pool = AgentPool.create(params.n_agents)
-    pool.trip_purpose[:] = _draw_purposes(params.behavior, params.n_agents, rng)
+    pool.trip_purpose[:] = purposes
     pool.speed_mps[:] = rng.normal(
         params.behavior.walk_speed_mean_mps,
         params.behavior.walk_speed_std_mps,
@@ -97,28 +100,80 @@ def run(params: SimulationParams) -> ScenarioResult:
 
 
 def _draw_trip_counts(behavior: TravelBehaviorParams, n: int, rng: np.random.Generator) -> np.ndarray:
-    raise NotImplementedError
+    if behavior.trip_rate_distribution == "poisson":
+        counts = rng.poisson(behavior.trip_rate_mean, n)
+    else:
+        counts = np.round(rng.normal(behavior.trip_rate_mean, behavior.trip_rate_std, n))
+    return np.clip(counts, 1, None).astype(np.int32)
 
 
 def _draw_departure_ticks(
     behavior: TravelBehaviorParams,
+    n: int,
     start_hour: int,
     end_hour: int,
     timestep_s: float,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    raise NotImplementedError
+    n_ticks = int((end_hour - start_hour) * 3600 / timestep_s)
+
+    if behavior.departure_profile == "uniform":
+        return rng.integers(0, n_ticks, n).astype(np.int32)
+
+    # Bimodal: two Gaussian peaks + off-peak uniform
+    p1 = behavior.peak1_weight
+    p2 = behavior.peak2_weight
+    p_off = max(0.0, 1.0 - p1 - p2)
+    which = rng.choice(3, size=n, p=[p1, p2, p_off])
+
+    std_ticks = int(0.5 * 3600 / timestep_s)  # 30-min std dev
+
+    def _hour_to_tick(h: float) -> float:
+        return (h - start_hour) * 3600 / timestep_s
+
+    raw = np.where(
+        which == 0,
+        rng.normal(_hour_to_tick(behavior.peak1_hour), std_ticks, n),
+        np.where(
+            which == 1,
+            rng.normal(_hour_to_tick(behavior.peak2_hour), std_ticks, n),
+            rng.integers(0, n_ticks, n).astype(float),
+        ),
+    )
+    return np.clip(np.round(raw), 0, n_ticks - 1).astype(np.int32)
+
+
+# Maps PURPOSE_* codes → amenity category key (None = any graph node)
+_PURPOSE_AMENITY: dict[int, str | None] = {
+    0: None,       # work — no dedicated OSM category; use any node
+    1: "school",
+    2: "shop",
+    3: "other",
+}
 
 
 def _draw_destinations(
     amenities: dict[str, list[int]],
-    spawn_nodes: np.ndarray,
-    behavior: TravelBehaviorParams,
+    purposes: np.ndarray,
     G,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    raise NotImplementedError
+    all_nodes = np.array(list(G.nodes()), dtype=np.int64)
+    dest_nodes = np.empty(len(purposes), dtype=np.int64)
+
+    for purpose_code, amenity_key in _PURPOSE_AMENITY.items():
+        mask = purposes == purpose_code
+        count = int(mask.sum())
+        if count == 0:
+            continue
+        candidates = np.array(amenities.get(amenity_key, []), dtype=np.int64) if amenity_key else np.array([], dtype=np.int64)
+        pool = candidates if len(candidates) > 0 else all_nodes
+        dest_nodes[mask] = pool[rng.integers(0, len(pool), count)]
+
+    return dest_nodes
 
 
 def _draw_purposes(behavior: TravelBehaviorParams, n: int, rng: np.random.Generator) -> np.ndarray:
-    raise NotImplementedError
+    keys = ["work", "school", "market", "other"]
+    weights = [behavior.purpose_weights.get(k, 0.0) for k in keys]
+    return rng.choice(len(keys), size=n, p=weights).astype(np.uint8)
