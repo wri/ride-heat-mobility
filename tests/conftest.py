@@ -32,6 +32,7 @@ def tiny_graph():
     No OSM download needed.
     """
     G = nx.MultiDiGraph()
+    G.graph["crs"] = "epsg:4326"
     base_lon, base_lat = 36.800, -1.300
     step = 0.010  # ~1 km
 

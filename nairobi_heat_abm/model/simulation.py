@@ -57,7 +57,7 @@ def run(params: SimulationParams) -> ScenarioResult:
         params.end_hour, params.timestep_s, rng,
     )
     purposes = _draw_purposes(params.behavior, params.n_agents, rng)
-    dest_nodes = _draw_destinations(amenities, purposes, G, rng)
+    dest_nodes = _draw_destinations(amenities, purposes, spawn_nodes, G, rng)
 
     pool = AgentPool.create(params.n_agents)
     pool.trip_purpose[:] = purposes
@@ -77,9 +77,13 @@ def run(params: SimulationParams) -> ScenarioResult:
         departing = (departure_ticks == tick_i) & ~pool.active
         pool.active[departing] = True
 
+        active_before_tick = pool.active.copy()
         tick(pool, G, params.heat_surface, tick_i, params.timestep_s, params.start_hour)
 
-        just_finished = ~pool.active & (pool.route_index > 0)
+        # Only agents that transitioned active -> inactive *this* tick just finished;
+        # otherwise a completed agent (route_index stays > 0) gets re-logged every
+        # remaining tick of the simulation.
+        just_finished = active_before_tick & ~pool.active
         for i in np.where(just_finished)[0]:
             trip_log.append({
                 "agent_id": int(i),
@@ -152,23 +156,66 @@ _PURPOSE_AMENITY: dict[int, str | None] = {
 }
 
 
+def _haversine_m(lon1: float, lat1: float, lon2: np.ndarray, lat2: np.ndarray) -> np.ndarray:
+    """Great-circle distance in metres from a single point to an array of points."""
+    R = 6_371_000.0
+    lon1r, lat1r = np.radians(lon1), np.radians(lat1)
+    lon2r, lat2r = np.radians(lon2), np.radians(lat2)
+    dlon = lon2r - lon1r
+    dlat = lat2r - lat1r
+    a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1r) * np.cos(lat2r) * np.sin(dlon / 2.0) ** 2
+    return R * 2.0 * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0)))
+
+
 def _draw_destinations(
     amenities: dict[str, list[int]],
     purposes: np.ndarray,
+    origin_nodes: np.ndarray,
     G,
     rng: np.random.Generator,
+    min_distance_m: float = 25.0,
 ) -> np.ndarray:
+    """
+    Draw one destination per agent from the OSM amenity category matching its trip
+    purpose ("work" has no dedicated OSM tag, so it draws from any graph node).
+    Candidates are weighted by inverse distance from the agent's origin node, so
+    nearby destinations are preferred over far ones; the origin node itself is
+    excluded to avoid zero-length trips.
+    """
     all_nodes = np.array(list(G.nodes()), dtype=np.int64)
+    all_lons = np.array([G.nodes[int(n)]["x"] for n in all_nodes])
+    all_lats = np.array([G.nodes[int(n)]["y"] for n in all_nodes])
     dest_nodes = np.empty(len(purposes), dtype=np.int64)
 
     for purpose_code, amenity_key in _PURPOSE_AMENITY.items():
         mask = purposes == purpose_code
-        count = int(mask.sum())
-        if count == 0:
+        agent_idx = np.where(mask)[0]
+        if len(agent_idx) == 0:
             continue
+
         candidates = np.array(amenities.get(amenity_key, []), dtype=np.int64) if amenity_key else np.array([], dtype=np.int64)
-        pool = candidates if len(candidates) > 0 else all_nodes
-        dest_nodes[mask] = pool[rng.integers(0, len(pool), count)]
+        if len(candidates) > 0:
+            pool = candidates
+            pool_lons = np.array([G.nodes[int(n)]["x"] for n in pool])
+            pool_lats = np.array([G.nodes[int(n)]["y"] for n in pool])
+        else:
+            pool, pool_lons, pool_lats = all_nodes, all_lons, all_lats
+
+        for i in agent_idx:
+            origin = int(origin_nodes[i])
+            o_lon, o_lat = G.nodes[origin]["x"], G.nodes[origin]["y"]
+
+            dists = _haversine_m(o_lon, o_lat, pool_lons, pool_lats)
+            weights = 1.0 / np.maximum(dists, min_distance_m)
+            weights[pool == origin] = 0.0  # exclude self: avoid zero-length trips
+
+            total = weights.sum()
+            if total <= 0.0:
+                # Only candidate is the origin itself (e.g. single-node amenity pool) — allow it.
+                weights = np.ones_like(weights)
+                total = weights.sum()
+
+            dest_nodes[i] = pool[rng.choice(len(pool), p=weights / total)]
 
     return dest_nodes
 
