@@ -1,11 +1,15 @@
 """Phase 2 gate tests — ABM core."""
 from __future__ import annotations
 
+import dataclasses
+
 import numpy as np
 import pytest
 
 from nairobi_heat_abm.model.agent import (
     AgentPool, TravelBehaviorParams, MODE_WALK, MODE_WAIT,
+    AGE_ADULT, AGE_YOUTH, GENDER_FEMALE, GENDER_MALE, SES_FORMAL, SES_INFORMAL,
+    DemographicParams, ParamModifier,
     params_from_json, params_to_json,
 )
 from nairobi_heat_abm.model.routing import route_walk
@@ -84,3 +88,61 @@ def test_simulation_is_deterministic(mini_simulation_params):
     r1 = run(mini_simulation_params)
     r2 = run(mini_simulation_params)
     np.testing.assert_array_equal(r1.agent_exposure_degC_min, r2.agent_exposure_degC_min)
+
+
+def test_effective_behavior_combines_modifiers_multiplicatively():
+    from nairobi_heat_abm.model.simulation import _effective_behavior
+
+    base = TravelBehaviorParams(
+        trip_rate_mean=4.0, trip_rate_std=1.0,
+        purpose_weights={"work": 0.4, "school": 0.2, "market": 0.25, "other": 0.15},
+    )
+    demo = DemographicParams(
+        age_modifiers={AGE_YOUTH: ParamModifier(trip_rate_mean_mult=1.5, purpose_weight_mult={"school": 2.0})},
+        gender_modifiers={GENDER_FEMALE: ParamModifier(trip_rate_mean_mult=0.9)},
+        ses_modifiers={SES_INFORMAL: ParamModifier(purpose_weight_mult={"work": 0.5})},
+    )
+
+    effective = _effective_behavior(base, demo, AGE_YOUTH, GENDER_FEMALE, SES_INFORMAL)
+    assert effective.trip_rate_mean == pytest.approx(4.0 * 1.5 * 0.9)
+
+    raw_work = 0.4 * 0.5
+    raw_school = 0.2 * 2.0
+    raw_total = raw_work + raw_school + 0.25 + 0.15
+    assert effective.purpose_weights["work"] == pytest.approx(raw_work / raw_total)
+    assert effective.purpose_weights["school"] == pytest.approx(raw_school / raw_total)
+
+    # A segment with no matching modifiers falls back to an unchanged (renormalized-no-op) base.
+    unmodified = _effective_behavior(base, demo, AGE_ADULT, GENDER_MALE, SES_FORMAL)
+    assert unmodified.trip_rate_mean == pytest.approx(base.trip_rate_mean)
+    for k, v in base.purpose_weights.items():
+        assert unmodified.purpose_weights[k] == pytest.approx(v)
+
+
+def test_simulation_with_demographics_populates_pool_and_shifts_trip_rate_by_segment(mini_simulation_params):
+    from nairobi_heat_abm.model.simulation import run
+
+    demo = DemographicParams(
+        age_group_shares={AGE_ADULT: 1.0},
+        gender_shares={GENDER_MALE: 0.5, GENDER_FEMALE: 0.5},
+        gender_modifiers={GENDER_FEMALE: ParamModifier(trip_rate_mean_mult=3.0)},
+    )
+    params = dataclasses.replace(mini_simulation_params, n_agents=200, demographics=demo)
+    result = run(params)
+
+    assert set(np.unique(result.agent_age_group).tolist()) == {AGE_ADULT}
+    assert set(np.unique(result.agent_gender).tolist()) == {GENDER_MALE, GENDER_FEMALE}
+    assert np.all(result.agent_ses == SES_FORMAL)  # no boundary data supplied -> everyone formal
+
+    male_mean = result.agent_n_trips[result.agent_gender == GENDER_MALE].mean()
+    female_mean = result.agent_n_trips[result.agent_gender == GENDER_FEMALE].mean()
+    assert female_mean > male_mean
+
+
+def test_simulation_without_demographics_leaves_pool_fields_zeroed(mini_simulation_params):
+    from nairobi_heat_abm.model.simulation import run
+
+    result = run(mini_simulation_params)
+    assert np.all(result.agent_age_group == 0)
+    assert np.all(result.agent_gender == 0)
+    assert np.all(result.agent_ses == SES_FORMAL)

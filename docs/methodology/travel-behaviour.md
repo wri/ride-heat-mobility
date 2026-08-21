@@ -66,8 +66,23 @@ The bimodal departure profile reflects morning and evening commute peaks observe
 
 <!-- TODO: informal transit in Nairobi has highly variable headways; discuss what evidence exists for acceptable wait times -->
 
+## Demographic modifiers
+
+Age group, gender, and socioeconomic/informality status (see [Population model](population-model.md#demographic-composition) for how agents get these attributes) can each carry a `ParamModifier` (`model/agent.py`) that multiplicatively adjusts a base `TravelBehaviorParams` for agents with that attribute value:
+
+- `trip_rate_mean_mult` / `trip_rate_std_mult` — adjusts travel frequency (**Trip generation**, above).
+- `purpose_weight_mult` — adjusts trip purpose weights (**Trip purpose**, above) for specific purposes; unspecified purposes are left at their base weight. Weights are renormalized after all three attributes' modifiers are applied, so only the *relative* shift matters, not the absolute multiplier.
+
+The three attributes combine **independently and multiplicatively** — e.g. a youth x female x informal-settlement agent's effective `trip_rate_mean` is `base x age_mult x gender_mult x ses_mult` — rather than each (age, gender, SES) combination having its own independently-calibrated profile. This was a deliberate simplification to keep the parameter count tractable for calibration and RDM sweeps, at the cost of not capturing genuine three-way interaction effects (e.g. if young informal-settlement women behave differently from what their individual age/gender/SES effects alone would predict).
+
+Only trip rate and purpose weights are demographically modified in the current implementation — departure timing, mode split, and walk speed are not (yet) attribute-dependent, though `ParamModifier` can be extended to cover them the same way if evidence calls for it.
+
+<!-- TODO: cite empirical differentials in trip rate and purpose mix by age/gender/SES for Nairobi (or comparable East African cities) to justify default modifier values; currently all modifier dicts default empty (no-op) until populated per scenario -->
+
 ## Uncertainty ranges for RDM
 
 All parameters above are varied in RDM sweeps. See [RDM approach](rdm-approach.md) for how ranges are chosen and how sensitivity is assessed.
+
+Demographic modifiers are not currently swept by the RDM pipeline (`rdm/sampling.py` only varies the base `TravelBehaviorParams`) — this is a known gap, not a design decision, and would be natural follow-up work once modifier values are empirically grounded.
 
 See [References](references.md) for full citations.

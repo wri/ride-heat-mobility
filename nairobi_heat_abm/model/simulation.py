@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import dataclasses
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 import osmnx as ox
 
 from nairobi_heat_abm.data.amenities import load_amenity_index
+from nairobi_heat_abm.data.demographics import assign_ses, draw_age_gender, load_informal_settlement_boundaries
 from nairobi_heat_abm.data.heat import HeatSurface
 from nairobi_heat_abm.data.population import load_population_raster, sample_spawn_nodes
-from nairobi_heat_abm.model.agent import AgentPool, TravelBehaviorParams
+from nairobi_heat_abm.model.agent import AgentPool, DemographicParams, ParamModifier, TravelBehaviorParams
 from nairobi_heat_abm.model.routing import assign_routes
 from nairobi_heat_abm.model.scheduler import tick
 
@@ -28,6 +30,7 @@ class SimulationParams:
     amenity_cache_path: Path
     worldpop_tif_path: Path
     heat_surface: HeatSurface
+    demographics: DemographicParams | None = None  # None = no age/gender/SES segmentation
 
 
 @dataclass
@@ -39,6 +42,11 @@ class ScenarioResult:
     agent_n_trips: np.ndarray            # int32,   shape (n_agents,)
     trip_log: list[dict]
     elapsed_seconds: float
+    # uint8, shape (n_agents,) — zero-filled (AGE_CHILD/GENDER_MALE/SES_FORMAL) when
+    # params.demographics was None, i.e. demographics weren't modeled for this scenario.
+    agent_age_group: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.uint8))
+    agent_gender: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.uint8))
+    agent_ses: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.uint8))
 
 
 def run(params: SimulationParams) -> ScenarioResult:
@@ -51,16 +59,48 @@ def run(params: SimulationParams) -> ScenarioResult:
     density, transform = load_population_raster(params.worldpop_tif_path, params.bbox)
 
     spawn_nodes = sample_spawn_nodes(density, transform, G, params.n_agents, rng)
-    n_trips = _draw_trip_counts(params.behavior, params.n_agents, rng)
-    departure_ticks = _draw_departure_ticks(
-        params.behavior, params.n_agents, params.start_hour,
-        params.end_hour, params.timestep_s, rng,
-    )
-    purposes = _draw_purposes(params.behavior, params.n_agents, rng)
+
+    age_group = np.zeros(params.n_agents, dtype=np.uint8)
+    gender = np.zeros(params.n_agents, dtype=np.uint8)
+    ses = np.zeros(params.n_agents, dtype=np.uint8)
+
+    if params.demographics is None:
+        n_trips = _draw_trip_counts(params.behavior, params.n_agents, rng)
+        departure_ticks = _draw_departure_ticks(
+            params.behavior, params.n_agents, params.start_hour,
+            params.end_hour, params.timestep_s, rng,
+        )
+        purposes = _draw_purposes(params.behavior, params.n_agents, rng)
+    else:
+        demo = params.demographics
+        age_group, gender = draw_age_gender(demo, params.n_agents, rng)
+        boundary_gdf = load_informal_settlement_boundaries(demo.informal_settlement_path)
+        ses = assign_ses(spawn_nodes, G, boundary_gdf)
+
+        n_trips = np.empty(params.n_agents, dtype=np.int32)
+        departure_ticks = np.empty(params.n_agents, dtype=np.int32)
+        purposes = np.empty(params.n_agents, dtype=np.uint8)
+
+        segments = sorted(set(zip(age_group.tolist(), gender.tolist(), ses.tolist())))
+        for age_code, gender_code, ses_code in segments:
+            seg_idx = np.where(
+                (age_group == age_code) & (gender == gender_code) & (ses == ses_code)
+            )[0]
+            effective = _effective_behavior(params.behavior, demo, age_code, gender_code, ses_code)
+
+            n_trips[seg_idx] = _draw_trip_counts(effective, len(seg_idx), rng)
+            departure_ticks[seg_idx] = _draw_departure_ticks(
+                effective, len(seg_idx), params.start_hour, params.end_hour, params.timestep_s, rng,
+            )
+            purposes[seg_idx] = _draw_purposes(effective, len(seg_idx), rng)
+
     dest_nodes = _draw_destinations(amenities, purposes, spawn_nodes, G, rng)
 
     pool = AgentPool.create(params.n_agents)
     pool.trip_purpose[:] = purposes
+    pool.age_group[:] = age_group
+    pool.gender[:] = gender
+    pool.ses[:] = ses
     pool.speed_mps[:] = rng.normal(
         params.behavior.walk_speed_mean_mps,
         params.behavior.walk_speed_std_mps,
@@ -90,6 +130,9 @@ def run(params: SimulationParams) -> ScenarioResult:
                 "purpose": int(pool.trip_purpose[i]),
                 "mode": int(pool.mode[i]),
                 "heat_degC_min": float(pool.heat_exposure_degC_min[i]),
+                "age_group": int(pool.age_group[i]),
+                "gender": int(pool.gender[i]),
+                "ses": int(pool.ses[i]),
             })
 
     return ScenarioResult(
@@ -100,6 +143,41 @@ def run(params: SimulationParams) -> ScenarioResult:
         agent_n_trips=n_trips,
         trip_log=trip_log,
         elapsed_seconds=time.perf_counter() - t0,
+        agent_age_group=pool.age_group.copy(),
+        agent_gender=pool.gender.copy(),
+        agent_ses=pool.ses.copy(),
+    )
+
+
+def _effective_behavior(
+    base: TravelBehaviorParams,
+    demo: DemographicParams,
+    age_code: int,
+    gender_code: int,
+    ses_code: int,
+) -> TravelBehaviorParams:
+    """
+    Combines base with the (independent, multiplicative) modifiers for one demographic
+    segment. Missing modifiers default to ParamModifier() (no-op). purpose_weights are
+    renormalized automatically by TravelBehaviorParams.__post_init__ via dataclasses.replace.
+    """
+    m_age = demo.age_modifiers.get(age_code, ParamModifier())
+    m_gender = demo.gender_modifiers.get(gender_code, ParamModifier())
+    m_ses = demo.ses_modifiers.get(ses_code, ParamModifier())
+
+    trip_rate_mean = base.trip_rate_mean * m_age.trip_rate_mean_mult * m_gender.trip_rate_mean_mult * m_ses.trip_rate_mean_mult
+    trip_rate_std = base.trip_rate_std * m_age.trip_rate_std_mult * m_gender.trip_rate_std_mult * m_ses.trip_rate_std_mult
+
+    purpose_weights = dict(base.purpose_weights)
+    for modifier in (m_age, m_gender, m_ses):
+        for purpose, mult in modifier.purpose_weight_mult.items():
+            purpose_weights[purpose] = purpose_weights.get(purpose, 0.0) * mult
+
+    return dataclasses.replace(
+        base,
+        trip_rate_mean=trip_rate_mean,
+        trip_rate_std=trip_rate_std,
+        purpose_weights=purpose_weights,
     )
 
 

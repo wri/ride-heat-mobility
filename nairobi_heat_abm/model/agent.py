@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 
@@ -16,6 +17,20 @@ PURPOSE_WORK = 0
 PURPOSE_SCHOOL = 1
 PURPOSE_MARKET = 2
 PURPOSE_OTHER = 3
+
+# Age group codes stored in AgentPool.age_group (uint8)
+AGE_CHILD = 0
+AGE_YOUTH = 1
+AGE_ADULT = 2
+AGE_ELDERLY = 3
+
+# Gender codes stored in AgentPool.gender (uint8)
+GENDER_MALE = 0
+GENDER_FEMALE = 1
+
+# Socioeconomic/informality status codes stored in AgentPool.ses (uint8)
+SES_FORMAL = 0
+SES_INFORMAL = 1
 
 
 @dataclass
@@ -66,6 +81,36 @@ def params_from_json(s: str) -> TravelBehaviorParams:
 
 
 @dataclass
+class ParamModifier:
+    """A multiplicative adjustment to a subset of TravelBehaviorParams, applied for one
+    value of one demographic attribute (an age group, a gender, or an SES level)."""
+    trip_rate_mean_mult: float = 1.0
+    trip_rate_std_mult: float = 1.0
+    purpose_weight_mult: dict[str, float] = field(default_factory=dict)  # e.g. {"work": 1.3}
+
+
+@dataclass
+class DemographicParams:
+    # Age/gender composition — independent weighted draws, not spatial.
+    age_group_shares: dict[int, float] = field(default_factory=lambda: {
+        AGE_CHILD: 0.35, AGE_YOUTH: 0.20, AGE_ADULT: 0.35, AGE_ELDERLY: 0.10,
+    })
+    gender_shares: dict[int, float] = field(default_factory=lambda: {
+        GENDER_MALE: 0.49, GENDER_FEMALE: 0.51,
+    })
+
+    # SES/informality is spatially derived from this boundary file (see data/demographics.py
+    # assign_ses()). None = no real boundary data available yet -> every agent is SES_FORMAL.
+    informal_settlement_path: Path | None = None
+
+    # Modifiers keyed by the code of the attribute value they apply to (AGE_*, GENDER_*, SES_*).
+    # Missing keys mean "no adjustment" (ParamModifier() is a no-op).
+    age_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
+    gender_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
+    ses_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
+
+
+@dataclass
 class AgentPool:
     n: int
 
@@ -85,6 +130,11 @@ class AgentPool:
     # Trip state
     active: np.ndarray       # bool,    shape (n,) — False when trip complete
     trip_purpose: np.ndarray # uint8,   shape (n,) — 0=work,1=school,2=market,3=other
+
+    # Demographics — zero-initialized (AGE_CHILD/GENDER_MALE/SES_FORMAL) when not modeled
+    age_group: np.ndarray    # uint8,   shape (n,) — see AGE_* codes
+    gender: np.ndarray       # uint8,   shape (n,) — see GENDER_* codes
+    ses: np.ndarray          # uint8,   shape (n,) — see SES_* codes
 
     # Exposure accumulation (°C × minutes)
     heat_exposure_degC_min: np.ndarray  # float32, shape (n,)
@@ -106,6 +156,9 @@ class AgentPool:
             speed_mps=np.full(n, 1.2, dtype=np.float32),
             active=np.zeros(n, dtype=bool),
             trip_purpose=np.zeros(n, dtype=np.uint8),
+            age_group=np.zeros(n, dtype=np.uint8),
+            gender=np.zeros(n, dtype=np.uint8),
+            ses=np.zeros(n, dtype=np.uint8),
             heat_exposure_degC_min=np.zeros(n, dtype=np.float32),
             route_edges=[[] for _ in range(n)],
             route_index=np.zeros(n, dtype=np.int32),

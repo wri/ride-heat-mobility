@@ -67,6 +67,31 @@ def params_from_json(s: str) -> TravelBehaviorParams:
 
 Also validate against `schemas/travel_behavior.json` using `jsonschema.validate` on load.
 
+### Demographic modifiers and composition
+
+File: `model/agent.py` (added alongside `TravelBehaviorParams`)
+
+Age group (`AGE_CHILD`/`AGE_YOUTH`/`AGE_ADULT`/`AGE_ELDERLY`), gender (`GENDER_MALE`/`GENDER_FEMALE`), and SES/informality (`SES_FORMAL`/`SES_INFORMAL`) codes, mirroring the `MODE_*`/`PURPOSE_*` code convention above.
+
+```python
+@dataclass
+class ParamModifier:
+    trip_rate_mean_mult: float = 1.0
+    trip_rate_std_mult: float = 1.0
+    purpose_weight_mult: dict[str, float] = field(default_factory=dict)
+
+@dataclass
+class DemographicParams:
+    age_group_shares: dict[int, float] = field(default_factory=lambda: {...})  # city-wide, not spatial
+    gender_shares: dict[int, float] = field(default_factory=lambda: {...})     # city-wide, not spatial
+    informal_settlement_path: Path | None = None  # spatial SES source; None = all SES_FORMAL
+    age_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
+    gender_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
+    ses_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
+```
+
+`SimulationParams.demographics: DemographicParams | None = None` — when `None`, `simulation.run()` behaves exactly as it did before demographics existed (single global `TravelBehaviorParams` draw). When set, `run()` draws `age_group`/`gender` per agent from the shares (`data/demographics.py::draw_age_gender`, not spatial), assigns `ses` via a point-in-polygon join against `informal_settlement_path` (`data/demographics.py::assign_ses`), then for each unique `(age, gender, ses)` segment present, resolves an effective `TravelBehaviorParams` (`simulation.py::_effective_behavior` — combines all three modifiers multiplicatively, relies on `TravelBehaviorParams.__post_init__` to renormalize `purpose_weights`) and draws that segment's trip counts/departure times/purposes from it. See [Population model](../docs/methodology/population-model.md#demographic-composition) for the modeling rationale, including the still-pending informal-settlement boundary data.
+
 ---
 
 ## 2.2 Agent state — columnar NumPy arrays
@@ -96,6 +121,11 @@ class AgentPool:
     # Trip state
     active: np.ndarray        # bool, shape (n,) — False when trip complete
     trip_purpose: np.ndarray  # uint8, shape (n,) — 0=work,1=school,2=market,3=other
+
+    # Demographics — zero-initialized (AGE_CHILD/GENDER_MALE/SES_FORMAL) when not modeled
+    age_group: np.ndarray     # uint8, shape (n,)
+    gender: np.ndarray        # uint8, shape (n,)
+    ses: np.ndarray           # uint8, shape (n,)
 
     # Exposure accumulation
     heat_exposure_degC_min: np.ndarray  # float32, shape (n,) — running total
