@@ -139,7 +139,7 @@ def build_amenity_index(
     force_rebuild: bool = False,
 ) -> dict[str, list[int]]:
     """
-    Returns: { "school": [node_id, ...], "shop": [...], "health": [...], "other": [...] }
+    Returns: { "school": [node_id, ...], "shop": [...], "health": [...], "other": [...], "work": [...] }
     """
 ```
 
@@ -151,6 +151,13 @@ AMENITY_TAGS = {
     "shop":     {"shop": True, "amenity": ["marketplace", "supermarket"]},
     "health":   {"amenity": ["hospital", "clinic", "pharmacy", "doctors"]},
     "other":    {"amenity": ["place_of_worship", "community_centre", "library"]},
+    "work": {
+        "office": True,
+        "craft": True,
+        "landuse": ["commercial", "industrial"],
+        "building": ["office", "commercial", "industrial", "warehouse"],
+        "amenity": ["townhall", "courthouse", "bank"],
+    },
 }
 ```
 
@@ -159,6 +166,8 @@ Use `ox.features_from_bbox()` for each tag group.
 For each POI, snap to nearest walkable node via `ox.nearest_nodes` and add `node_type="amenity"` and `amenity_type=<category>` to that node.
 
 Return a dict mapping category → list of graph node IDs. Serialise as JSON.
+
+**"work" is a union, not just its own tag group.** Shops, schools, and health facilities employ workers in addition to serving clients/students/patients, so after all categories are fetched, `_add_work_overlap()` merges the `school`, `shop`, and `health` node lists into `work` (deduplicated against the office/industrial-tagged nodes already there). This double-counting is deliberate — the same place genuinely serves both roles — and only applies in this one direction (e.g. `other` is never merged into anything).
 
 ---
 
@@ -307,7 +316,7 @@ def test_graph_caches_and_reloads(small_bbox, tmp_path):
 
 def test_amenity_index_returns_expected_categories(small_bbox, tiny_graph):
     index = build_amenity_index(small_bbox, tiny_graph, force_rebuild=True)
-    assert set(index.keys()) == {"school", "shop", "health", "other"}
+    assert set(index.keys()) == {"school", "shop", "health", "other", "work"}
 
 def test_spawn_sampling_returns_valid_node_ids(tiny_graph):
     density = np.ones((10, 10))

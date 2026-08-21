@@ -11,7 +11,31 @@ AMENITY_TAGS: dict[str, dict] = {
     "shop":   {"shop": True, "amenity": ["marketplace", "supermarket"]},
     "health": {"amenity": ["hospital", "clinic", "pharmacy", "doctors"]},
     "other":  {"amenity": ["place_of_worship", "community_centre", "library"]},
+    "work": {
+        "office": True,
+        "craft": True,
+        "landuse": ["commercial", "industrial"],
+        "building": ["office", "commercial", "industrial", "warehouse"],
+        "amenity": ["townhall", "courthouse", "bank"],
+    },
 }
+
+# Shops, schools, and health facilities also employ workers (not just serve clients/students/
+# patients), so they belong in the "work" destination pool too, on top of the work-specific
+# tags above. Node IDs already present in "work" (e.g. an office that's also snapped near a
+# bank) are not duplicated.
+_WORK_OVERLAP_CATEGORIES = ("school", "shop", "health")
+
+
+def _add_work_overlap(result: dict[str, list[int]]) -> None:
+    combined = list(result.get("work", []))
+    seen = set(combined)
+    for category in _WORK_OVERLAP_CATEGORIES:
+        for node_id in result.get(category, []):
+            if node_id not in seen:
+                seen.add(node_id)
+                combined.append(node_id)
+    result["work"] = combined
 
 
 def build_amenity_index(
@@ -52,6 +76,8 @@ def build_amenity_index(
         except Exception:
             pass
         result[category] = node_ids
+
+    _add_work_overlap(result)
 
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     with open(cache_path, "w") as f:

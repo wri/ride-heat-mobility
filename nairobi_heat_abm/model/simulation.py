@@ -149,7 +149,7 @@ def _draw_departure_ticks(
 
 # Maps PURPOSE_* codes → amenity category key (None = any graph node)
 _PURPOSE_AMENITY: dict[int, str | None] = {
-    0: None,       # work — no dedicated OSM category; use any node
+    0: "work",
     1: "school",
     2: "shop",
     3: "other",
@@ -177,10 +177,12 @@ def _draw_destinations(
 ) -> np.ndarray:
     """
     Draw one destination per agent from the OSM amenity category matching its trip
-    purpose ("work" has no dedicated OSM tag, so it draws from any graph node).
-    Candidates are weighted by inverse distance from the agent's origin node, so
-    nearby destinations are preferred over far ones; the origin node itself is
-    excluded to avoid zero-length trips.
+    purpose ("work" draws from offices/industrial-commercial land plus shop/school/
+    health locations, since those also employ workers — see `_add_work_overlap` in
+    data/amenities.py). Falls back to any graph node if a category's amenity pool is
+    empty (e.g. an OSM fetch failure). Candidates are weighted by inverse distance
+    from the agent's origin node, so nearby destinations are preferred over far ones;
+    the origin node itself is excluded to avoid zero-length trips.
     """
     all_nodes = np.array(list(G.nodes()), dtype=np.int64)
     all_lons = np.array([G.nodes[int(n)]["x"] for n in all_nodes])
