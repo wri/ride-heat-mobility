@@ -64,4 +64,8 @@ Only move to Phase 3 (`@docs/phase3-panel-app.md`) once the notebook runs cleanl
 
 ## Current status
 
-Phase 1 + Phase 2 code is written. Currently prototyping in the notebook against real data: OSM graph and WorldPop population loading are confirmed working end-to-end; the heat surface is blocked on real Nairobi UTCI tiles landing in the WRI TCM S3 bucket (format: tiled UTM GeoTIFFs, one mosaic-and-reproject pass needed per hour — see `data/heat.py:load_utci_tiles()`). Test suites (`tests/test_phase1.py` onward) have not been run yet. Phase 3 (Panel UI) not started.
+Phase 1 + Phase 2 are code-complete and validated against real data in the notebook: OSM walk network, WorldPop spawn density, OSM amenities, age/gender/SES demographics (spatially-derived from 5 WorldPop group rasters), and DigitalMatatus GTFS transit routing (frequency-based, not a literal timetable) are all confirmed working end-to-end — the real Nairobi graph carries 4,284 transit stops / 7,063 transit ride edges, and a full simulation run shows a genuine walk-vs-transit exposure split. `pytest tests/ -m "not slow"` is green except the expected Phase 3 stub failure; `@pytest.mark.slow` (real-network) tests haven't been re-run recently.
+
+Still blocked: real heat surface (waiting on Nairobi UTCI tiles in the WRI TCM S3 bucket — synthetic fallback used everywhere until then) and real informal-settlement boundary data (SES defaults to all-`SES_FORMAL` until then). Demographic/transit behavioural modifiers (`ParamModifier` on `DemographicParams`) are structurally wired but not yet populated with real values.
+
+Phase 4 (RDM, `@docs/phase4-rdm.md`) is code-complete (`rdm/sampling.py`/`batch.py`/`analysis.py`) but has only ever been tested against synthetic `tiny_graph` scenarios, never against the real transit+demographics-enabled pipeline — see the project memory for exactly what's unverified before trusting a real sweep. Phase 3 (Panel UI) not started.

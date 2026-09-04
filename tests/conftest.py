@@ -68,6 +68,70 @@ def tiny_graph():
     return G
 
 
+@pytest.fixture
+def small_gtfs_dir(tmp_path):
+    """
+    A tiny synthetic GTFS feed (3 stops, 1 trip, 2 frequency bands), shaped like the
+    real DigitalMatatus feed: stop_times.txt is a single reference run, real service
+    frequency lives in frequencies.txt. Stop coordinates sit on tiny_graph's bottom row
+    (lat -1.300) so _integrate_gtfs() snaps access-links onto real tiny_graph nodes.
+    """
+    gtfs_dir = tmp_path / "gtfs"
+    gtfs_dir.mkdir()
+    (gtfs_dir / "stops.txt").write_text(
+        "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\n"
+        "S1,Stop A,-1.300,36.800,0,\n"
+        "S2,Stop B,-1.300,36.810,0,\n"
+        "S3,Stop C,-1.300,36.820,0,\n"
+    )
+    (gtfs_dir / "trips.txt").write_text(
+        "route_id,service_id,trip_id,trip_headsign,direction_id,shape_id\n"
+        "R1,DAILY,T1,Eastbound,0,SH1\n"
+    )
+    (gtfs_dir / "stop_times.txt").write_text(
+        "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
+        "T1,6:00:00,6:00:00,S1,1\n"
+        "T1,6:02:00,6:02:20,S2,2\n"
+        "T1,6:05:00,6:05:20,S3,3\n"
+    )
+    (gtfs_dir / "frequencies.txt").write_text(
+        "trip_id,start_time,end_time,headway_secs\n"
+        "T1,06:00:00,09:00:00,300\n"
+        "T1,09:00:00,15:00:00,900\n"
+    )
+    return gtfs_dir
+
+
+@pytest.fixture
+def transit_graph(tiny_graph):
+    """
+    tiny_graph plus 2 hand-built transit stops (stop_a near node (0,0), stop_b near
+    node (0,2), the opposite ends of the bottom row) connected by bidirectional
+    access-links and a single directed 5-minute transit ride, serviced 6:00-9:00 at a
+    300s headway and 9:00-21:00 at a 900s headway. Used to test route_transit()/tick()
+    precisely, without going through GTFS parsing.
+    """
+    G = tiny_graph.copy()
+    nodes = sorted(G.nodes())  # tiny_graph builds nodes 1000..1008 in row-major order
+    walk_a, walk_b = nodes[0], nodes[2]  # (0,0) and (0,2): lon 36.800 and 36.820, lat -1.300
+
+    stop_a, stop_b = 9000, 9001
+    G.add_node(stop_a, x=36.800, y=-1.300, node_type="transit_stop", stop_id="S1", stop_name="Stop A")
+    G.add_node(stop_b, x=36.820, y=-1.300, node_type="transit_stop", stop_id="S2", stop_name="Stop B")
+
+    G.add_edge(stop_a, walk_a, length=10.0, travel_time=8.3, edge_type="access_link")
+    G.add_edge(walk_a, stop_a, length=10.0, travel_time=8.3, edge_type="access_link")
+    G.add_edge(stop_b, walk_b, length=10.0, travel_time=8.3, edge_type="access_link")
+    G.add_edge(walk_b, stop_b, length=10.0, travel_time=8.3, edge_type="access_link")
+
+    G.add_edge(
+        stop_a, stop_b, length=2000.0, travel_time=300.0, edge_type="transit",
+        route_id="R1", trip_id="T1",
+        frequencies=[[21600, 32400, 300], [32400, 75600, 900]],  # 6-9am @5min, 9am-9pm @15min
+    )
+    return G
+
+
 # ---------------------------------------------------------------------------
 # Heat surface fixtures
 # ---------------------------------------------------------------------------
@@ -147,6 +211,44 @@ def mini_simulation_params(tiny_graph, flat_heat_surface, tmp_path):
         worldpop_tif_path=worldpop_path,
         heat_surface=flat_heat_surface,
     )
+
+
+@pytest.fixture
+def demographic_raster_paths(tmp_path):
+    """
+    5 small aligned rasters (total/children/adult/elderly/female) over the same bbox
+    as mini_simulation_params, with a spatial split: the western half is all children,
+    the eastern half is all adults (20+, no elderly); the northern half is all female.
+    Used to test DemographicParams.population_raster_paths / draw_age_gender_spatial
+    end-to-end via simulation.run().
+    """
+    transform = from_bounds(36.800, -1.320, 36.830, -1.280, 10, 10)
+
+    def _write(name, array):
+        path = tmp_path / f"{name}.tif"
+        with rasterio.open(
+            path, "w", driver="GTiff",
+            height=10, width=10, count=1,
+            dtype="float32", crs="EPSG:4326", transform=transform,
+        ) as dst:
+            dst.write(array[np.newaxis, :, :].astype(np.float32))
+        return path
+
+    total = np.ones((10, 10), dtype=np.float32)
+    children = np.zeros((10, 10), dtype=np.float32)
+    children[:, :5] = 1.0  # western half
+    adult = 1.0 - children  # eastern half
+    elderly = np.zeros((10, 10), dtype=np.float32)
+    female = np.zeros((10, 10), dtype=np.float32)
+    female[:5, :] = 1.0  # northern half (row 0 = north, per from_bounds convention)
+
+    return {
+        "total": _write("total", total),
+        "children": _write("children", children),
+        "adult": _write("adult", adult),
+        "elderly": _write("elderly", elderly),
+        "female": _write("female", female),
+    }
 
 
 @pytest.fixture

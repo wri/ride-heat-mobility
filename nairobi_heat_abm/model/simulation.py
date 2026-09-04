@@ -9,10 +9,14 @@ import numpy as np
 import osmnx as ox
 
 from nairobi_heat_abm.data.amenities import load_amenity_index
-from nairobi_heat_abm.data.demographics import assign_ses, draw_age_gender, load_informal_settlement_boundaries
+from nairobi_heat_abm.data.demographics import (
+    assign_ses, draw_age_gender, draw_age_gender_spatial, load_informal_settlement_boundaries,
+)
 from nairobi_heat_abm.data.heat import HeatSurface
-from nairobi_heat_abm.data.population import load_population_raster, sample_spawn_nodes
-from nairobi_heat_abm.model.agent import AgentPool, DemographicParams, ParamModifier, TravelBehaviorParams
+from nairobi_heat_abm.data.population import load_population_raster, load_population_rasters, sample_spawn_nodes
+from nairobi_heat_abm.model.agent import (
+    AgentPool, DemographicParams, MODE_TRANSIT, MODE_WALK, ParamModifier, TravelBehaviorParams,
+)
 from nairobi_heat_abm.model.routing import assign_routes
 from nairobi_heat_abm.model.scheduler import tick
 
@@ -49,6 +53,23 @@ class ScenarioResult:
     agent_ses: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.uint8))
 
 
+def _trip_mode(route_edges: list[tuple], G) -> int:
+    """
+    Summary mode for a (possibly-completed) trip: MODE_TRANSIT if any edge in the
+    route is an actual transit ride, else MODE_WALK (including an empty/no-path
+    route). This is deliberately NOT pool.mode[i] itself, which reflects only the
+    CURRENT edge's mode moment-to-moment — every transit trip ends with a
+    walk-to-destination leg, so pool.mode[i] at trip completion is always MODE_WALK
+    even for a trip that rode transit most of the way. rdm/analysis.py::compute_outcomes
+    relies on this walk-vs-transit split (via ScenarioResult.agent_modes) to compare
+    exposure by mode, so it needs to reflect the whole trip, not just its last edge.
+    """
+    for u, v, key, _ in route_edges:
+        if G[u][v][key].get("edge_type") == "transit":
+            return MODE_TRANSIT
+    return MODE_WALK
+
+
 def run(params: SimulationParams) -> ScenarioResult:
     """
     Pure function — no global state. Safe to call from ProcessPoolExecutor workers.
@@ -56,9 +77,19 @@ def run(params: SimulationParams) -> ScenarioResult:
     rng = np.random.default_rng(params.seed)
     G = ox.load_graphml(params.graph_cache_path)
     amenities = load_amenity_index(params.amenity_cache_path)
-    density, transform = load_population_raster(params.worldpop_tif_path, params.bbox)
 
-    spawn_nodes = sample_spawn_nodes(density, transform, G, params.n_agents, rng)
+    use_spatial_demographics = (
+        params.demographics is not None and params.demographics.population_raster_paths is not None
+    )
+    if use_spatial_demographics:
+        # "total" is both the spawn-density surface and the denominator for the other
+        # groups' local shares — supersedes worldpop_tif_path for this run.
+        rasters, transform = load_population_rasters(params.demographics.population_raster_paths, params.bbox)
+        density = rasters["total"]
+    else:
+        density, transform = load_population_raster(params.worldpop_tif_path, params.bbox)
+
+    spawn_nodes, spawn_rows, spawn_cols = sample_spawn_nodes(density, transform, G, params.n_agents, rng)
 
     age_group = np.zeros(params.n_agents, dtype=np.uint8)
     gender = np.zeros(params.n_agents, dtype=np.uint8)
@@ -73,7 +104,10 @@ def run(params: SimulationParams) -> ScenarioResult:
         purposes = _draw_purposes(params.behavior, params.n_agents, rng)
     else:
         demo = params.demographics
-        age_group, gender = draw_age_gender(demo, params.n_agents, rng)
+        if use_spatial_demographics:
+            age_group, gender = draw_age_gender_spatial(rasters, spawn_rows, spawn_cols, rng)
+        else:
+            age_group, gender = draw_age_gender(demo, params.n_agents, rng)
         boundary_gdf = load_informal_settlement_boundaries(demo.informal_settlement_path)
         ses = assign_ses(spawn_nodes, G, boundary_gdf)
 
@@ -107,7 +141,10 @@ def run(params: SimulationParams) -> ScenarioResult:
         params.n_agents,
     ).clip(0.3, 3.0).astype(np.float32)
 
-    assign_routes(pool, G, spawn_nodes, dest_nodes, departure_ticks, params.behavior, rng)
+    assign_routes(
+        pool, G, spawn_nodes, dest_nodes, departure_ticks, params.behavior, rng,
+        params.start_hour, params.timestep_s,
+    )
 
     n_ticks = int((params.end_hour - params.start_hour) * 3600 / params.timestep_s)
     trip_log: list[dict] = []
@@ -128,17 +165,19 @@ def run(params: SimulationParams) -> ScenarioResult:
             trip_log.append({
                 "agent_id": int(i),
                 "purpose": int(pool.trip_purpose[i]),
-                "mode": int(pool.mode[i]),
+                "mode": _trip_mode(pool.route_edges[i], G),
                 "heat_degC_min": float(pool.heat_exposure_degC_min[i]),
                 "age_group": int(pool.age_group[i]),
                 "gender": int(pool.gender[i]),
                 "ses": int(pool.ses[i]),
             })
 
+    agent_modes = np.array([_trip_mode(edges, G) for edges in pool.route_edges], dtype=np.uint8)
+
     return ScenarioResult(
         params=params,
         agent_exposure_degC_min=pool.heat_exposure_degC_min.copy(),
-        agent_modes=pool.mode.copy(),
+        agent_modes=agent_modes,
         agent_purposes=pool.trip_purpose.copy(),
         agent_n_trips=n_trips,
         trip_log=trip_log,

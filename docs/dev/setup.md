@@ -24,8 +24,12 @@ Place the following in `data/raw/` before running the model. These files are git
 
 | File | Source | Notes |
 |---|---|---|
-| `worldpop_nairobi.tif` | WorldPop Hub | 100 m resolution population grid, Kenya |
-| `gtfs/` | DigitalMatatus or Nairobi City County | GTFS feed for matatu network |
+| `nairobipop_total.tif` | WorldPop Hub | 100 m resolution total population grid, Kenya |
+| `nairobipop_children.tif` | WorldPop Hub | Population aged <=14 |
+| `nairobipop_adult.tif` | WorldPop Hub | Population aged >=20 (includes elderly) |
+| `nairobipop_elderly.tif` | WorldPop Hub | Population aged >=60 |
+| `nairobipop_female.tif` | WorldPop Hub | Female population, any age |
+| `GTFS_FEED_2019.zip` | [DigitalMatatus](http://www.digitalmatatus.com) | GTFS feed for the matatu network — read directly as a zip, no need to extract |
 | `heat/*.tif` | Research team | Temperature raster(s), one band per hour |
 
 The OSM graph is downloaded automatically:

@@ -93,8 +93,12 @@ These must be downloaded manually and placed in `data/raw/`:
 
 | File | Source | Notes |
 |---|---|---|
-| `worldpop_nairobi.tif` | https://hub.worldpop.org | 100m resolution population grid, Kenya |
-| `gtfs/` directory | DigitalMatatus or Nairobi City County | GTFS feed for matatu network |
+| `nairobipop_total.tif` | https://hub.worldpop.org | 100m resolution total population grid, Kenya |
+| `nairobipop_children.tif` | https://hub.worldpop.org | Population aged <=14 |
+| `nairobipop_adult.tif` | https://hub.worldpop.org | Population aged >=20 (includes elderly) |
+| `nairobipop_elderly.tif` | https://hub.worldpop.org | Population aged >=60 |
+| `nairobipop_female.tif` | https://hub.worldpop.org | Female population, any age |
+| `GTFS_FEED_2019.zip` | http://www.digitalmatatus.com | GTFS feed for the matatu network — read directly as a zip, no need to extract |
 | `heat/*.tif` | Provided by research team | Temperature raster(s) |
 
 The OSM graph is downloaded automatically by `data/graph.py --build` and cached to `data/raw/graph.graphml`.

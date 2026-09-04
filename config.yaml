@@ -16,8 +16,14 @@ walk_speed_default_mps: 1.2
 paths:
   graph_cache: data/raw/graph.graphml
   amenity_cache: data/raw/amenities.json
-  worldpop_tif: data/raw/worldpop_nairobi.tif
-  gtfs_dir: data/raw/gtfs/
+  worldpop_tif: data/raw/nairobipop_total.tif
+  worldpop_tifs:  # per-demographic-group rasters, all covering the same area as worldpop_tif
+    total: data/raw/nairobipop_total.tif
+    children: data/raw/nairobipop_children.tif  # age <=14
+    adult: data/raw/nairobipop_adult.tif        # age >=20 (includes elderly)
+    elderly: data/raw/nairobipop_elderly.tif    # age >=60
+    female: data/raw/nairobipop_female.tif      # any age
+  gtfs_path: data/raw/GTFS_FEED_2019.zip  # DigitalMatatus feed; a directory of .txt files also works
   heat_dir: data/raw/heat/
 
 app:

@@ -99,21 +99,42 @@ Node types used later: `"intersection"`, `"transit_stop"`, `"amenity"`.
 
 ### GTFS integration
 
+`gtfs_path` accepts either a directory of GTFS `.txt` files or a `.zip` feed (files at
+its root) — the DigitalMatatus 2019 feed (`GTFS_FEED_2019.zip`) ships as the latter,
+read directly without needing to unzip it first.
+
+**This feed is frequency-based, not a literal timetable.** Every trip in
+`stop_times.txt` is a single reference run — in the 2019 Nairobi feed, all 272 trips
+start at the identical nominal clock time `6:00:20` — and real service frequency lives
+entirely in `frequencies.txt` as headway bands per trip (e.g. 300s during 6:00–9:00,
+900s during 9:00–15:00). So `stop_times.txt` is only a source of *relative* stop-to-stop
+ride time, never a real departure clock time; a trip with no matching `frequencies.txt`
+entry (a small minority) is skipped entirely — there's no way to know how often it runs.
+
 If `gtfs_path` is provided:
 
-1. Parse `stops.txt` → insert each stop as a node with `node_type="transit_stop"` and attributes: `stop_id`, `stop_name`, `lat`, `lon`.
-2. For each stop, find the nearest walkable node via `ox.nearest_nodes`. Add a bidirectional **access edge** with:
+1. Parse `stops.txt` → insert one node per `stop_id`, with `node_type="transit_stop"`
+   and attributes `stop_id`, `stop_name`, `x`/`y` (lon/lat, matching the OSM node
+   convention). Synthetic node IDs start at `10**13`, well clear of any real OSM ID.
+2. For each stop, find the nearest walkable node via `ox.nearest_nodes` (batched across
+   all stops). Add a bidirectional **access edge** with:
    - `edge_type = "access_link"`
-   - `length` = Haversine distance (m)
+   - `length` = Haversine distance (m), floored at 1 m
    - `travel_time` = length / 1.2 (walk speed)
-   - `weight` = travel_time (used by routing)
-3. Parse `stop_times.txt` and `trips.txt`. For each consecutive stop-pair on a route, add a directed **boarding edge**:
-   - `edge_type = "transit"`
-   - `route_id`, `trip_id`
-   - `departure_time` (seconds since midnight)
-   - `travel_time` = arrival_time − departure_time
-   - `weight` = travel_time
-4. If `stop_times.txt` is large (>1M rows), use chunked pandas reads.
+3. Parse `stop_times.txt` and `trips.txt`. For each consecutive stop-pair actually
+   ridden on some trip that has frequency data, add a directed **transit edge**:
+   - `edge_type = "transit"`, `route_id`, `trip_id`
+   - `length` = Haversine distance between the two stops (m), floored at 1 m
+   - `travel_time` = that trip's `arrival_time` at the second stop minus its
+     `departure_time` at the first (excludes dwell time at the first stop)
+   - `frequencies` = that trip's frequency bands, as a list of
+     `[start_s, end_s, headway_secs]` triples (seconds since midnight). Stored as a
+     plain Python list — osmnx's GraphML round-trip auto-`ast.literal_eval`s any
+     string-valued attribute that looks like a Python list/dict, so it comes back as a
+     real nested list after `ox.load_graphml()`, no manual JSON encode/decode needed.
+
+See `model/routing.py::route_transit()` (phase2-abm-core.md) for how the headway bands
+are turned into an expected wait time at routing time.
 
 ### Serialisation
 
@@ -179,11 +200,38 @@ Return a dict mapping category → list of graph node IDs. Serialise as JSON.
 def load_population_raster(
     tif_path: str | Path,
     bbox: tuple[float, float, float, float],
+    dst_transform: rasterio.Affine | None = None,
+    dst_shape: tuple[int, int] | None = None,
 ) -> tuple[np.ndarray, rasterio.Affine]:
     """
     Returns (density_array, transform).
     density_array shape: (rows, cols), values: people per pixel.
     Clips to bbox. Reprojects to EPSG:4326 if needed.
+    If dst_transform/dst_shape are given, reprojects onto that exact grid instead of
+    computing its own — used by load_population_rasters() (below) to keep multiple
+    demographic-group rasters pixel-aligned.
+    """
+```
+
+Source rasters aren't always north-up (`transform.e < 0`, row 0 = north edge) — some
+WorldPop exports are south-up (`transform.e > 0`, row 0 = south edge). The pre-reproject
+windowing step (`rasterio.windows.from_bounds`) requires its bound args ordered to match
+whichever direction the source transform actually uses, or it raises `WindowError:
+Bounds and transform are inconsistent`; swap bottom/top based on the sign of
+`transform.e` before calling it.
+
+### Multi-raster load function
+
+```python
+def load_population_rasters(
+    tif_paths: dict[str, str | Path],   # must include a "total" key
+    bbox: tuple[float, float, float, float],
+) -> tuple[dict[str, np.ndarray], rasterio.Affine]:
+    """
+    Loads several demographic-group WorldPop rasters (e.g. total/children/adult/
+    elderly/female), all reprojected onto the SAME grid as "total" (loaded first to
+    fix it), so a given (row, col) means the same location in every returned array —
+    see 2.x `draw_age_gender_spatial` in phase2-abm-core.md.
     """
 ```
 
@@ -196,12 +244,13 @@ def sample_spawn_nodes(
     G: nx.MultiDiGraph,
     n_agents: int,
     rng: np.random.Generator,
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Returns array of shape (n_agents,) with graph node IDs.
-    Weighted sample of grid cells by population density,
-    then snap each sampled cell centre to nearest graph node.
-    Zero-density cells are excluded.
+    Returns (node_ids, rows, cols), each shape (n_agents,). node_ids are graph node
+    IDs (weighted sample of grid cells by population density, snapped to nearest graph
+    node). rows/cols are the sampled density_array cell indices themselves, before
+    snapping — so callers can look up the same cells in other pixel-aligned rasters
+    from load_population_rasters(). Zero-density cells are excluded.
     """
 ```
 
@@ -210,6 +259,7 @@ Steps:
 2. `rng.choice(len(flat_density), size=n_agents, p=probs)` — vectorised, no Python loop.
 3. Convert flat indices → (row, col) → (lon, lat) via `rasterio.transform.xy`.
 4. Batch-snap to graph: `ox.nearest_nodes(G, X=lons, Y=lats)` — returns array of node IDs.
+5. Return node IDs alongside the (row, col) indices from step 2/3.
 
 ---
 
@@ -284,8 +334,14 @@ walk_speed_default_mps: 1.2
 paths:
   graph_cache: data/raw/graph.graphml
   amenity_cache: data/raw/amenities.json
-  worldpop_tif: data/raw/worldpop_nairobi.tif
-  gtfs_dir: data/raw/gtfs/
+  worldpop_tif: data/raw/nairobipop_total.tif
+  worldpop_tifs:  # per-demographic-group rasters, all covering the same area as worldpop_tif
+    total: data/raw/nairobipop_total.tif
+    children: data/raw/nairobipop_children.tif  # age <=14
+    adult: data/raw/nairobipop_adult.tif        # age >=20 (includes elderly)
+    elderly: data/raw/nairobipop_elderly.tif    # age >=60
+    female: data/raw/nairobipop_female.tif      # any age
+  gtfs_path: data/raw/GTFS_FEED_2019.zip  # a directory of .txt files also works
   heat_dir: data/raw/heat/
 
 app:
@@ -322,7 +378,7 @@ def test_spawn_sampling_returns_valid_node_ids(tiny_graph):
     density = np.ones((10, 10))
     transform = rasterio.transform.from_bounds(36.8, -1.3, 36.9, -1.2, 10, 10)
     rng = np.random.default_rng(42)
-    nodes = sample_spawn_nodes(density, transform, tiny_graph, n_agents=50, rng=rng)
+    nodes, rows, cols = sample_spawn_nodes(density, transform, tiny_graph, n_agents=50, rng=rng)
     assert len(nodes) == 50
     assert all(n in tiny_graph.nodes for n in nodes)
 

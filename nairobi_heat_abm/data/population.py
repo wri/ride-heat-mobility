@@ -14,10 +14,17 @@ import rasterio.transform
 def load_population_raster(
     tif_path: str | Path,
     bbox: tuple[float, float, float, float],  # (south, west, north, east)
+    dst_transform: rasterio.Affine | None = None,
+    dst_shape: tuple[int, int] | None = None,
 ) -> tuple[np.ndarray, rasterio.Affine]:
     """
     Load WorldPop raster clipped to bbox. Reprojects to EPSG:4326 if needed.
     Returns (density_array, transform) where density_array is people-per-pixel.
+
+    If dst_transform/dst_shape are given, reprojects onto that exact grid instead of
+    computing its own — used by load_population_rasters() so multiple demographic-group
+    rasters end up pixel-aligned with each other regardless of their own native
+    resolution/extent/CRS, so per-pixel values across rasters can be compared directly.
     """
     south, west, north, east = bbox
     dst_crs = "EPSG:4326"
@@ -33,18 +40,30 @@ def load_population_raster(
         else:
             src_left, src_bottom, src_right, src_top = west, south, east, north
 
+        # rasterio.windows.from_bounds requires (right-left)/transform.a >= 0 and
+        # (bottom-top)/transform.e >= 0 — i.e. the bound args must be ordered to match
+        # the transform's own axis direction. Most rasters are north-up (transform.e < 0,
+        # row 0 = north edge), but some WorldPop exports are south-up (transform.e > 0,
+        # row 0 = south edge); swap bottom/top so the call is valid either way — the
+        # result is the same window regardless, since from_bounds takes min/max over all
+        # four corners internally.
+        win_left, win_right = (src_left, src_right) if src.transform.a >= 0 else (src_right, src_left)
+        win_bottom, win_top = (src_bottom, src_top) if src.transform.e < 0 else (src_top, src_bottom)
         window = rasterio.windows.from_bounds(
-            src_left, src_bottom, src_right, src_top, transform=src.transform,
+            win_left, win_bottom, win_right, win_top, transform=src.transform,
         ).round_lengths().round_offsets()
         window = window.intersection(rasterio.windows.Window(0, 0, src.width, src.height))
 
         src_array = src.read(1, window=window)
         src_transform = src.window_transform(window)
 
-        dst_transform, dst_width, dst_height = rasterio.warp.calculate_default_transform(
-            src.crs, dst_crs, window.width, window.height,
-            left=src_left, bottom=src_bottom, right=src_right, top=src_top,
-        )
+        if dst_transform is None or dst_shape is None:
+            dst_transform, dst_width, dst_height = rasterio.warp.calculate_default_transform(
+                src.crs, dst_crs, window.width, window.height,
+                left=src_left, bottom=src_bottom, right=src_right, top=src_top,
+            )
+        else:
+            dst_height, dst_width = dst_shape
         dst_array = np.empty((dst_height, dst_width), dtype=np.float32)
         rasterio.warp.reproject(
             source=src_array,
@@ -64,16 +83,48 @@ def load_population_raster(
     return dst_array, dst_transform
 
 
+def load_population_rasters(
+    tif_paths: dict[str, str | Path],
+    bbox: tuple[float, float, float, float],  # (south, west, north, east)
+) -> tuple[dict[str, np.ndarray], rasterio.Affine]:
+    """
+    Load multiple demographic-group WorldPop rasters (e.g. nairobipop_{total,children,
+    adult,elderly,female}.tif) clipped to bbox, all reprojected onto the SAME target
+    grid as "total" — so a given (row, col) means the same location in every returned
+    array, and per-pixel values across rasters can be combined directly (see
+    data/demographics.py::draw_age_gender_spatial).
+
+    tif_paths must include a "total" key; it's loaded first to fix the grid that every
+    other raster is reprojected onto, regardless of its own native resolution/extent.
+    Returns ({key: density_array, ...}, transform).
+    """
+    total_array, transform = load_population_raster(tif_paths["total"], bbox)
+    rasters: dict[str, np.ndarray] = {"total": total_array}
+    dst_shape = total_array.shape
+
+    for key, path in tif_paths.items():
+        if key == "total":
+            continue
+        array, _ = load_population_raster(path, bbox, dst_transform=transform, dst_shape=dst_shape)
+        rasters[key] = array
+
+    return rasters, transform
+
+
 def sample_spawn_nodes(
     density_array: np.ndarray,
     transform: rasterio.Affine,
     G: nx.MultiDiGraph,
     n_agents: int,
     rng: np.random.Generator,
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Weighted sample of grid cells by population density, snapped to nearest graph node.
-    Returns array of shape (n_agents,) with graph node IDs.
+    Returns (node_ids, rows, cols), each of shape (n_agents,): node_ids are graph node
+    IDs; rows/cols are the sampled density_array cell indices themselves (before
+    snapping), so callers can look up the same cells in other pixel-aligned rasters —
+    see data/population.py::load_population_rasters and
+    data/demographics.py::draw_age_gender_spatial.
     """
     flat = density_array.flatten().astype(np.float64)
     valid = np.isfinite(flat) & (flat > 0)
@@ -86,4 +137,4 @@ def sample_spawn_nodes(
     lons, lats = np.array(lons), np.array(lats)
 
     node_ids = ox.nearest_nodes(G, X=lons, Y=lats)
-    return np.array(node_ids, dtype=np.int64)
+    return np.array(node_ids, dtype=np.int64), np.asarray(rows), np.asarray(cols)

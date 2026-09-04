@@ -14,6 +14,10 @@ Phase 1 builds and caches all static data assets the model needs before any agen
 
 ### GTFS integration
 
+`_integrate_gtfs(G, gtfs_path)` (called from `build_graph()` when `gtfs_path` is given) mutates the walk graph in-place, reading a DigitalMatatus-style feed from either a directory of `.txt` files or a `.zip` at its root. It adds one `transit_stop` node per `stop_id`, bidirectional `access_link` edges to the nearest walk node, and one `transit` edge per consecutive stop-pair actually ridden by a trip that has `frequencies.txt` coverage — see [Transport network](../methodology/transport-network.md#matatu-network-gtfs) for why frequency bands (not `stop_times.txt` clock times) are the thing that actually drives routing here, and `model/routing.py::route_transit()` for how those bands turn into an expected wait.
+
+Each transit edge's `frequencies` attribute is a plain Python list of `[start_s, end_s, headway_secs]` triples — stored as a native list (not JSON), since osmnx's `save_graphml`/`load_graphml` already round-trips any string-valued attribute that looks like a Python list/dict via `ast.literal_eval`.
+
 ### Serialisation and caching
 
 ### Known issues and edge cases

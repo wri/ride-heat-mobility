@@ -91,13 +91,26 @@ class ParamModifier:
 
 @dataclass
 class DemographicParams:
-    # Age/gender composition — independent weighted draws, not spatial.
+    # Age/gender composition — independent weighted draws, not spatial. Used unless
+    # population_raster_paths is set (see below), in which case age/gender are instead
+    # drawn per agent from the local demographic-group population rasters and these two
+    # shares are ignored.
     age_group_shares: dict[int, float] = field(default_factory=lambda: {
         AGE_CHILD: 0.35, AGE_YOUTH: 0.20, AGE_ADULT: 0.35, AGE_ELDERLY: 0.10,
     })
     gender_shares: dict[int, float] = field(default_factory=lambda: {
         GENDER_MALE: 0.49, GENDER_FEMALE: 0.51,
     })
+
+    # Optional per-demographic-group WorldPop rasters (e.g. nairobipop_{key}.tif), all
+    # covering the same area as the "total" one. When set, age_group/gender are instead
+    # drawn spatially — from each agent's local demographic composition at its spawn
+    # pixel — via data/population.py::load_population_rasters and
+    # data/demographics.py::draw_age_gender_spatial. Required keys: "total" (used as the
+    # spawn-density surface, superseding SimulationParams.worldpop_tif_path), "children"
+    # (age <=14), "adult" (age >=20, includes elderly), "elderly" (age >=60), "female"
+    # (any age). None (default) = use the flat age_group_shares/gender_shares above.
+    population_raster_paths: dict[str, Path] | None = None
 
     # SES/informality is spatially derived from this boundary file (see data/demographics.py
     # assign_ses()). None = no real boundary data available yet -> every agent is SES_FORMAL.
@@ -125,7 +138,13 @@ class AgentPool:
     mode: np.ndarray         # uint8,   shape (n,)
 
     # Movement
-    speed_mps: np.ndarray    # float32, shape (n,) — per-agent walk speed
+    speed_mps: np.ndarray       # float32, shape (n,) — per-agent walk speed
+    edge_speed_mps: np.ndarray  # float32, shape (n,) — effective speed on the CURRENT edge:
+                                 #   speed_mps for walk/access-link edges, but the transit
+                                 #   edge's own (length / travel_time) while riding — a matatu
+                                 #   segment isn't traversed at the agent's personal walk pace
+    wait_ticks_remaining: np.ndarray  # int32, shape (n,) — ticks left waiting to board transit
+                                       #   (mode==MODE_WAIT); decremented in scheduler.py::tick()
 
     # Trip state
     active: np.ndarray       # bool,    shape (n,) — False when trip complete
@@ -140,7 +159,9 @@ class AgentPool:
     heat_exposure_degC_min: np.ndarray  # float32, shape (n,)
 
     # Routing
-    route_edges: list[list[tuple]]  # per-agent list of (u, v, key) tuples
+    route_edges: list[list[tuple]]  # per-agent list of (u, v, key, wait_ticks) tuples —
+                                     # wait_ticks is 0 for every edge except a transit-
+                                     # boarding edge, where it's the ticks to wait before riding
     route_index: np.ndarray         # int32, shape (n,) — current position in route
 
     @classmethod
@@ -154,6 +175,8 @@ class AgentPool:
             edge_length=np.ones(n, dtype=np.float32),
             mode=np.zeros(n, dtype=np.uint8),
             speed_mps=np.full(n, 1.2, dtype=np.float32),
+            edge_speed_mps=np.full(n, 1.2, dtype=np.float32),
+            wait_ticks_remaining=np.zeros(n, dtype=np.int32),
             active=np.zeros(n, dtype=bool),
             trip_purpose=np.zeros(n, dtype=np.uint8),
             age_group=np.zeros(n, dtype=np.uint8),

@@ -84,13 +84,19 @@ class ParamModifier:
 class DemographicParams:
     age_group_shares: dict[int, float] = field(default_factory=lambda: {...})  # city-wide, not spatial
     gender_shares: dict[int, float] = field(default_factory=lambda: {...})     # city-wide, not spatial
+    population_raster_paths: dict[str, Path] | None = None  # spatial age/gender source; see below
     informal_settlement_path: Path | None = None  # spatial SES source; None = all SES_FORMAL
     age_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
     gender_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
     ses_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
 ```
 
-`SimulationParams.demographics: DemographicParams | None = None` — when `None`, `simulation.run()` behaves exactly as it did before demographics existed (single global `TravelBehaviorParams` draw). When set, `run()` draws `age_group`/`gender` per agent from the shares (`data/demographics.py::draw_age_gender`, not spatial), assigns `ses` via a point-in-polygon join against `informal_settlement_path` (`data/demographics.py::assign_ses`), then for each unique `(age, gender, ses)` segment present, resolves an effective `TravelBehaviorParams` (`simulation.py::_effective_behavior` — combines all three modifiers multiplicatively, relies on `TravelBehaviorParams.__post_init__` to renormalize `purpose_weights`) and draws that segment's trip counts/departure times/purposes from it. See [Population model](../docs/methodology/population-model.md#demographic-composition) for the modeling rationale, including the still-pending informal-settlement boundary data.
+`SimulationParams.demographics: DemographicParams | None = None` — when `None`, `simulation.run()` behaves exactly as it did before demographics existed (single global `TravelBehaviorParams` draw). When set, `run()` draws `age_group`/`gender` per agent one of two ways:
+
+- `population_raster_paths=None` (default): from the flat city-wide shares (`data/demographics.py::draw_age_gender`, not spatial).
+- `population_raster_paths` set to `{"total", "children", "adult", "elderly", "female"}` raster paths (see [1.4](phase1-data-infrastructure.md) `load_population_rasters`): spatially, from each agent's own spawn pixel's local demographic composition (`data/demographics.py::draw_age_gender_spatial`) — an agent spawned in a pixel with a high elderly share is more likely to be drawn elderly, etc. In this mode, `population_raster_paths["total"]` also supersedes `SimulationParams.worldpop_tif_path` as the spawn-density surface for this run, so both spawn location and age/gender come from the same underlying data rather than two independently-loaded "total population" sources.
+
+Either way, `run()` then assigns `ses` via a point-in-polygon join against `informal_settlement_path` (`data/demographics.py::assign_ses`), then for each unique `(age, gender, ses)` segment present, resolves an effective `TravelBehaviorParams` (`simulation.py::_effective_behavior` — combines all three modifiers multiplicatively, relies on `TravelBehaviorParams.__post_init__` to renormalize `purpose_weights`) and draws that segment's trip counts/departure times/purposes from it. See [Population model](../docs/methodology/population-model.md#demographic-composition) for the modeling rationale, including the still-pending informal-settlement boundary data.
 
 ---
 
@@ -157,6 +163,14 @@ class AgentPool:
 
 ## 2.3 `model/routing.py` — path-finding
 
+Every route edge is a **4-tuple** `(u, v, key, wait_ticks)`, not the 3-tuple used
+pre-transit — `wait_ticks` is 0 for every edge except a transit-boarding edge, where
+it's how many ticks the agent should wait at that stop before the ride actually begins.
+Folding wait into the edge tuple (rather than a separate return value or a synthetic
+graph self-loop) lets `route_walk()` and `route_transit()` share a return type, and
+lets `AgentPool.route_edges` stay the single source of truth for both routing and
+`tick()`'s edge-transition loop.
+
 ### Walk routing
 
 ```python
@@ -165,9 +179,10 @@ def route_walk(
     origin_node: int,
     destination_node: int,
     weight: str = "travel_time",
-) -> list[tuple[int, int, int]]:
+) -> list[tuple[int, int, int, int]]:
     """
-    Returns list of (u, v, key) edge tuples forming the shortest path.
+    Returns list of (u, v, key, wait_ticks) edge tuples forming the shortest path;
+    wait_ticks is always 0 (a pure walk never waits).
     Raises nx.NetworkXNoPath if no path exists.
     """
     path_nodes = nx.shortest_path(G, origin_node, destination_node, weight=weight)
@@ -175,7 +190,7 @@ def route_walk(
     for u, v in zip(path_nodes[:-1], path_nodes[1:]):
         # MultiDiGraph: pick minimum-weight edge between u and v
         key = min(G[u][v], key=lambda k: G[u][v][k].get(weight, float("inf")))
-        edges.append((u, v, key))
+        edges.append((u, v, key, 0))
     return edges
 ```
 
@@ -186,24 +201,36 @@ def route_transit(
     G: nx.MultiDiGraph,
     origin_node: int,
     destination_node: int,
-    departure_tick: int,           # simulation tick (minutes since start_hour)
+    departure_tick: int,
     wait_tolerance_min: float,
+    timestep_s: float,
+    stops_subgraph: nx.MultiDiGraph,     # all transit_stop nodes — see below
+    transit_subgraph: nx.MultiDiGraph,   # only edge_type=="transit" edges
     start_hour: int = 6,
-) -> list[tuple[int, int, int]]:
+) -> list[tuple[int, int, int, int]]:
     """
-    Two-phase routing:
-      Phase 1: walk origin → nearest reachable transit stop
-      Phase 2: find valid boarding edge (departure within wait_tolerance)
-               ride to stop nearest destination
-      Phase 3: walk final stop → destination
-    Falls back to full walk route if no valid transit found.
+    Three-phase routing:
+      Phase 1: walk origin -> nearest transit stop (via route_walk on the full graph)
+      Phase 2: shortest path stop -> stop on the transit-only subgraph (free transfers
+               wherever two routes share a stop node; only the first boarding's wait is
+               charged, not any transfer wait)
+      Phase 3: walk final stop -> destination
+    Falls back to a full route_walk() (all wait_ticks=0) if the graph has no transit
+    stops/edges at all.
     """
 ```
 
-Implementation notes:
-- Filter transit edges to those with `departure_time` within `[current_time, current_time + wait_tolerance]`.
-- Use a subgraph containing only walk edges + valid transit edges for path-finding.
-- Do not call `nx.shortest_path` on the full graph with mixed edge types — pre-filter.
+The feed is frequency-based (see [1.2](phase1-data-infrastructure.md) `_integrate_gtfs`)
+— there's no literal departure clock time to match against `departure_tick`, only
+headway bands (`frequencies`, stored on each transit edge). So "is there a usable
+matatu" is answered by: look up the headway band covering the agent's actual departure
+time-of-day on the FIRST ride edge's trip; expected wait = `headway / 2` (a rider
+arriving at a random time under headway-based service waits half the headway on
+average); if no band covers that time, or the expected wait exceeds
+`wait_tolerance_min`, raise `nx.NetworkXNoPath` exactly like "no path found" — the
+caller (`assign_routes`) falls that agent back to a walk-only trip. `stops_subgraph` and
+`transit_subgraph` are precomputed once per `assign_routes()` call (not per agent) since
+neither depends on any agent's origin/destination.
 
 ### Batch route assignment
 
@@ -216,11 +243,25 @@ def assign_routes(
     departure_ticks: np.ndarray,
     params: TravelBehaviorParams,
     rng: np.random.Generator,
+    start_hour: int,
+    timestep_s: float,
 ) -> None:
     """Mutates pool.route_edges and pool.route_index in-place."""
 ```
 
-Assign routes for all agents. Use a simple loop here (routing is pre-simulation, not in the hot loop). Log a warning for any agent where no path is found; mark that agent `active=False`.
+Assign routes for all agents. Use a simple loop here (routing is pre-simulation, not in the hot loop). Log a warning for any agent where no path is found; mark that agent `active=False`. A successfully-routed agent's first edge is activated via the shared `_activate_edge()` helper (below) — `assign_routes()` does **not** itself set `active=True`; that happens later, in `simulation.run()`'s tick loop, once the simulation clock reaches the agent's own `departure_tick`.
+
+### Shared edge-activation helper
+
+```python
+def _activate_edge(pool: AgentPool, i: int, G: nx.MultiDiGraph, u: int, v: int, key: int, wait_ticks: int) -> None:
+    """Set agent i's current-edge state: position, edge length, mode, and the
+    effective per-tick speed for that edge. Used by both assign_routes() (the agent's
+    first edge) and scheduler.py::tick() (every later transition), so the two agree."""
+```
+
+- `pool.edge_speed_mps` is set here, not just `pool.speed_mps` used directly: for a walk/access-link edge it equals the agent's own personal walk speed (unchanged behaviour); for a transit edge it's that edge's own `length / travel_time` — a matatu segment isn't traversed at the rider's walking pace. `scheduler.py::tick()`'s progress-advance line reads `edge_speed_mps`, not `speed_mps`, so this is what actually makes riding faster than walking.
+- If `wait_ticks > 0`, the agent is put in `MODE_WAIT` with `pool.wait_ticks_remaining[i] = wait_ticks` instead of the edge's real mode — see `tick()` below for how that count winds down.
 
 ---
 
@@ -240,14 +281,31 @@ def tick(
     """
 ```
 
+### Transit-boarding wait countdown
+
+```python
+waiting = active & (pool.mode == MODE_WAIT)
+pool.wait_ticks_remaining[waiting] = np.maximum(pool.wait_ticks_remaining[waiting] - 1, 0)
+done_waiting = waiting & (pool.wait_ticks_remaining == 0)
+for i in np.where(done_waiting)[0]:
+    # switch to the current edge's real mode now that the wait has elapsed
+    ...
+```
+
+A waiting agent's position stays exactly at `edge_u` (the boarding stop) throughout —
+it's excluded from the progress-advance step below by `mode == MODE_WAIT`, so heat
+exposure still accumulates each tick at that fixed location, which is the point: standing
+at an exposed matatu stage is itself a real heat-exposure scenario worth modeling
+explicitly, not something to skip over.
+
 ### Vectorised position update
 
 ```python
 active = pool.active   # bool mask
 
-# Advance progress for walking and transit agents (not waiting)
+# Advance progress for agents that are moving (not waiting)
 moving = active & (pool.mode != MODE_WAIT)
-pool.progress[moving] += (pool.speed_mps[moving] * timestep_s
+pool.progress[moving] += (pool.edge_speed_mps[moving] * timestep_s
                           / pool.edge_length[moving])
 
 # Identify agents who have finished current edge
@@ -342,7 +400,7 @@ def run(params: SimulationParams) -> ScenarioResult:
     density, transform = load_population_raster(params.worldpop_tif_path, params.bbox)
 
     # Synthesise population
-    spawn_nodes = sample_spawn_nodes(density, transform, G, params.n_agents, rng)
+    spawn_nodes, spawn_rows, spawn_cols = sample_spawn_nodes(density, transform, G, params.n_agents, rng)
     n_trips = draw_trip_counts(params.behavior, params.n_agents, rng)
     departure_ticks = draw_departure_ticks(params.behavior, n_trips, params.start_hour, rng)
     dest_nodes = draw_destinations(amenities, spawn_nodes, params.behavior, rng)
@@ -350,7 +408,8 @@ def run(params: SimulationParams) -> ScenarioResult:
 
     # Build agent pool
     pool = AgentPool.create(params.n_agents)
-    assign_routes(pool, G, spawn_nodes, dest_nodes, departure_ticks, params.behavior, rng)
+    assign_routes(pool, G, spawn_nodes, dest_nodes, departure_ticks, params.behavior, rng,
+                  params.start_hour, params.timestep_s)
 
     # Time loop
     n_ticks = int((params.end_hour - params.start_hour) * 3600 / params.timestep_s)

@@ -6,7 +6,7 @@ import geopandas as gpd
 import networkx as nx
 import numpy as np
 
-from nairobi_heat_abm.model.agent import DemographicParams, SES_FORMAL, SES_INFORMAL
+from nairobi_heat_abm.model.agent import DemographicParams, GENDER_FEMALE, SES_FORMAL, SES_INFORMAL
 
 
 def draw_age_gender(
@@ -27,6 +27,63 @@ def draw_age_gender(
     gender_probs = np.array(list(demo.gender_shares.values()), dtype=np.float64)
     gender_probs /= gender_probs.sum()
     gender = gender_codes[rng.choice(len(gender_codes), size=n, p=gender_probs)]
+
+    return age_group, gender
+
+
+def draw_age_gender_spatial(
+    rasters: dict[str, np.ndarray],
+    rows: np.ndarray,
+    cols: np.ndarray,
+    rng: np.random.Generator,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Spatially-varying age/gender draw from per-pixel demographic-group population
+    counts (nairobipop_{total,children,adult,elderly,female}.tif, loaded via
+    data/population.py::load_population_rasters onto a shared grid). For each agent,
+    (rows[i], cols[i]) is the density cell it was spawned in
+    (data/population.py::sample_spawn_nodes) — age group and gender are drawn from
+    that cell's local composition, so e.g. an agent spawned in a pixel with a high
+    elderly share is more likely to be drawn as elderly.
+
+    Only "children" (age <=14), "adult" (age >=20, includes elderly), "elderly"
+    (age >=60), and "female" (any age) group counts are available — not a full
+    age x sex cross-tabulation — so the four AGE_* bins are reconstructed from these
+    overlapping counts:
+      - child  = children raster directly
+      - elderly = elderly raster directly
+      - adult  = adult raster minus elderly (elderly is a subset of the 20+ adult count)
+      - youth  = residual (total minus children minus adult), i.e. the 15-19 gap not
+                 covered by any raster
+    and gender is drawn independently of age, from the female raster's local share
+    (male is the residual). Because each raster is reprojected independently, per-pixel
+    values can fail to sum to exactly "total" near demographic boundaries (bilinear
+    interpolation doesn't preserve that identity) — probabilities are clipped to >=0 and
+    renormalized per agent rather than trusted to sum to 1 on their own.
+    """
+    total = rasters["total"][rows, cols].astype(np.float64)
+    children = np.nan_to_num(rasters["children"][rows, cols]).astype(np.float64)
+    adult20 = np.nan_to_num(rasters["adult"][rows, cols]).astype(np.float64)
+    elderly = np.nan_to_num(rasters["elderly"][rows, cols]).astype(np.float64)
+    female = np.nan_to_num(rasters["female"][rows, cols]).astype(np.float64)
+
+    p_child = children / total
+    p_elderly = elderly / total
+    p_adult = (adult20 - elderly) / total
+    p_youth = 1.0 - p_child - p_elderly - p_adult
+
+    # Order matches AGE_CHILD=0, AGE_YOUTH=1, AGE_ADULT=2, AGE_ELDERLY=3.
+    age_probs = np.clip(np.stack([p_child, p_youth, p_adult, p_elderly], axis=1), 0.0, None)
+    age_probs /= age_probs.sum(axis=1, keepdims=True)
+
+    n = len(rows)
+    r = rng.random(n)
+    age_cum = np.cumsum(age_probs, axis=1)
+    # Count how many cumulative bins r has passed -> first bin where r <= cum, vectorized.
+    age_group = (r[:, None] > age_cum).sum(axis=1).astype(np.uint8)
+
+    p_female = np.clip(female / total, 0.0, 1.0)
+    gender = np.where(rng.random(n) < p_female, GENDER_FEMALE, 1 - GENDER_FEMALE).astype(np.uint8)
 
     return age_group, gender
 

@@ -5,6 +5,7 @@ import networkx as nx
 
 from nairobi_heat_abm.data.heat import HeatSurface, sample_temperature
 from nairobi_heat_abm.model.agent import AgentPool, MODE_WALK, MODE_WAIT, MODE_TRANSIT
+from nairobi_heat_abm.model.routing import _activate_edge
 
 
 def tick(
@@ -18,9 +19,20 @@ def tick(
     """Advance all active agents by one timestep. Mutates pool in-place."""
     active = pool.active
 
-    # Advance progress for walking and transit agents (not waiting)
+    # Count down transit-boarding wait; once it elapses, switch to the edge's real mode
+    # (the agent stays put at edge_u throughout — progress is frozen below since it's
+    # excluded from `moving` while mode==MODE_WAIT).
+    waiting = active & (pool.mode == MODE_WAIT)
+    if waiting.any():
+        pool.wait_ticks_remaining[waiting] = np.maximum(pool.wait_ticks_remaining[waiting] - 1, 0)
+        done_waiting = waiting & (pool.wait_ticks_remaining == 0)
+        for i in np.where(done_waiting)[0]:
+            edge_data = G[int(pool.edge_u[i])][int(pool.edge_v[i])][int(pool.edge_key[i])]
+            pool.mode[i] = MODE_TRANSIT if edge_data.get("edge_type") == "transit" else MODE_WALK
+
+    # Advance progress for agents that are moving (not waiting)
     moving = active & (pool.mode != MODE_WAIT)
-    pool.progress[moving] += pool.speed_mps[moving] * timestep_s / pool.edge_length[moving]
+    pool.progress[moving] += pool.edge_speed_mps[moving] * timestep_s / pool.edge_length[moving]
 
     # Edge transition for agents that finished current edge
     finished_edge = active & (pool.progress >= 1.0)
@@ -30,14 +42,8 @@ def tick(
         if pool.route_index[i] >= len(pool.route_edges[i]):
             pool.active[i] = False
             continue
-        u, v, key = pool.route_edges[i][pool.route_index[i]]
-        pool.edge_u[i] = u
-        pool.edge_v[i] = v
-        pool.edge_key[i] = key
-        edge_data = G[u][v][key]
-        pool.edge_length[i] = edge_data["length"]
-        edge_type = edge_data.get("edge_type", "walk")
-        pool.mode[i] = MODE_TRANSIT if edge_type == "transit" else MODE_WALK
+        u, v, key, wait_ticks = pool.route_edges[i][pool.route_index[i]]
+        _activate_edge(pool, i, G, u, v, key, wait_ticks)
 
     # Heat accumulation (vectorised)
     active = pool.active  # re-read after mutations
