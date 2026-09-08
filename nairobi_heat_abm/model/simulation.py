@@ -102,6 +102,10 @@ def run(params: SimulationParams) -> ScenarioResult:
             params.end_hour, params.timestep_s, rng,
         )
         purposes = _draw_purposes(params.behavior, params.n_agents, rng)
+
+        travels = _draw_travel_gate(params.behavior, purposes, rng)
+        departure_ticks[~travels] = -1  # sentinel: never matches a tick_i, agent stays inactive
+        n_trips[~travels] = 0
     else:
         demo = params.demographics
         if use_spatial_demographics:
@@ -127,6 +131,14 @@ def run(params: SimulationParams) -> ScenarioResult:
                 effective, len(seg_idx), params.start_hour, params.end_hour, params.timestep_s, rng,
             )
             purposes[seg_idx] = _draw_purposes(effective, len(seg_idx), rng)
+
+            travels = _draw_travel_gate(effective, purposes[seg_idx], rng)
+            seg_departure_ticks = departure_ticks[seg_idx]
+            seg_departure_ticks[~travels] = -1
+            departure_ticks[seg_idx] = seg_departure_ticks
+            seg_n_trips = n_trips[seg_idx]
+            seg_n_trips[~travels] = 0
+            n_trips[seg_idx] = seg_n_trips
 
     dest_nodes = _draw_destinations(amenities, purposes, spawn_nodes, G, rng)
 
@@ -199,24 +211,59 @@ def _effective_behavior(
     Combines base with the (independent, multiplicative) modifiers for one demographic
     segment. Missing modifiers default to ParamModifier() (no-op). purpose_weights are
     renormalized automatically by TravelBehaviorParams.__post_init__ via dataclasses.replace.
+    Ratio-like fields (walk_only_share, peak weights, travel_probability) are clipped to
+    [0, 1] here rather than left to __post_init__ to raise, so slider-driven exploration
+    degrades gracefully instead of crashing a run.
     """
     m_age = demo.age_modifiers.get(age_code, ParamModifier())
     m_gender = demo.gender_modifiers.get(gender_code, ParamModifier())
     m_ses = demo.ses_modifiers.get(ses_code, ParamModifier())
+    modifiers = (m_age, m_gender, m_ses)
 
-    trip_rate_mean = base.trip_rate_mean * m_age.trip_rate_mean_mult * m_gender.trip_rate_mean_mult * m_ses.trip_rate_mean_mult
-    trip_rate_std = base.trip_rate_std * m_age.trip_rate_std_mult * m_gender.trip_rate_std_mult * m_ses.trip_rate_std_mult
+    def _mult(field_name: str) -> float:
+        product = 1.0
+        for m in modifiers:
+            product *= getattr(m, field_name)
+        return product
+
+    trip_rate_mean = base.trip_rate_mean * _mult("trip_rate_mean_mult")
+    trip_rate_std = base.trip_rate_std * _mult("trip_rate_std_mult")
+    peak1_hour = base.peak1_hour * _mult("peak1_hour_mult")
+    peak2_hour = base.peak2_hour * _mult("peak2_hour_mult")
+    peak1_weight = np.clip(base.peak1_weight * _mult("peak1_weight_mult"), 0.0, 1.0)
+    peak2_weight = np.clip(base.peak2_weight * _mult("peak2_weight_mult"), 0.0, 1.0)
+    walk_only_share = np.clip(base.walk_only_share * _mult("walk_only_share_mult"), 0.0, 1.0)
+    walk_speed_mean_mps = base.walk_speed_mean_mps * _mult("walk_speed_mean_mps_mult")
+    walk_speed_std_mps = base.walk_speed_std_mps * _mult("walk_speed_std_mps_mult")
+    transit_wait_tolerance_min = base.transit_wait_tolerance_min * _mult("transit_wait_tolerance_min_mult")
+    transit_wait_tolerance_std = base.transit_wait_tolerance_std * _mult("transit_wait_tolerance_std_mult")
 
     purpose_weights = dict(base.purpose_weights)
-    for modifier in (m_age, m_gender, m_ses):
+    for modifier in modifiers:
         for purpose, mult in modifier.purpose_weight_mult.items():
             purpose_weights[purpose] = purpose_weights.get(purpose, 0.0) * mult
+
+    travel_probability = dict(base.travel_probability)
+    for modifier in modifiers:
+        for purpose, mult in modifier.travel_probability_mult.items():
+            travel_probability[purpose] = travel_probability.get(purpose, 1.0) * mult
+    travel_probability = {k: float(np.clip(v, 0.0, 1.0)) for k, v in travel_probability.items()}
 
     return dataclasses.replace(
         base,
         trip_rate_mean=trip_rate_mean,
         trip_rate_std=trip_rate_std,
+        peak1_hour=peak1_hour,
+        peak2_hour=peak2_hour,
+        peak1_weight=float(peak1_weight),
+        peak2_weight=float(peak2_weight),
+        walk_only_share=float(walk_only_share),
+        walk_speed_mean_mps=walk_speed_mean_mps,
+        walk_speed_std_mps=walk_speed_std_mps,
+        transit_wait_tolerance_min=transit_wait_tolerance_min,
+        transit_wait_tolerance_std=transit_wait_tolerance_std,
         purpose_weights=purpose_weights,
+        travel_probability=travel_probability,
     )
 
 
@@ -264,11 +311,15 @@ def _draw_departure_ticks(
     return np.clip(np.round(raw), 0, n_ticks - 1).astype(np.int32)
 
 
+# PURPOSE_* codes (0-3), in order, as the string keys used by purpose_weights and
+# travel_probability on TravelBehaviorParams.
+PURPOSE_KEYS: tuple[str, ...] = ("work", "school", "market", "other")
+
 # Maps PURPOSE_* codes → amenity category key (None = any graph node)
 _PURPOSE_AMENITY: dict[int, str | None] = {
     0: "work",
     1: "school",
-    2: "shop",
+    2: "food",
     3: "other",
 }
 
@@ -340,6 +391,14 @@ def _draw_destinations(
 
 
 def _draw_purposes(behavior: TravelBehaviorParams, n: int, rng: np.random.Generator) -> np.ndarray:
-    keys = ["work", "school", "market", "other"]
-    weights = [behavior.purpose_weights.get(k, 0.0) for k in keys]
-    return rng.choice(len(keys), size=n, p=weights).astype(np.uint8)
+    weights = [behavior.purpose_weights.get(k, 0.0) for k in PURPOSE_KEYS]
+    return rng.choice(len(PURPOSE_KEYS), size=n, p=weights).astype(np.uint8)
+
+
+def _draw_travel_gate(behavior: TravelBehaviorParams, purposes: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """
+    Per-agent Bernoulli draw on behavior.travel_probability[purpose], keyed by each
+    agent's already-drawn purpose. True = the agent's single simulated trip happens.
+    """
+    p = np.array([behavior.travel_probability.get(PURPOSE_KEYS[code], 1.0) for code in purposes])
+    return rng.random(len(purposes)) < p

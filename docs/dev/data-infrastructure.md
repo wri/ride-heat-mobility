@@ -24,7 +24,21 @@ Each transit edge's `frequencies` attribute is a plain Python list of `[start_s,
 
 ## 2. Amenity index — `data/amenities.py`
 
-<!-- TODO: document AMENITY_TAGS categories, snapping logic, JSON cache format -->
+`build_amenity_index(bbox, G, cache_path, force_rebuild)` fetches OSM points of interest for five categories and snaps each to its nearest walk-graph node, tagging that node's `amenity_type` for later use (`model/simulation.py::_draw_destinations`).
+
+**Categories** (`AMENITY_TAGS: dict[str, list[dict]]`): each category maps to a *list* of separate `osmnx.features_from_bbox()` tag queries, fetched and merged/deduped independently rather than as one combined query per category:
+
+- `school` — `amenity` in `{school, university, college}`
+- `food` — `shop=supermarket` and `amenity=marketplace` only — deliberately narrow: not `shop=convenience` (too granular/ubiquitous to be a meaningful trip destination) and not restaurants/cafes (`amenity=restaurant|fast_food|cafe` is food *service*, not food *shopping*)
+- `health` — `amenity` in `{hospital, clinic, pharmacy, doctors}`
+- `other` — `amenity` in `{place_of_worship, community_centre, library}`
+- `work` — office/craft/landuse/building/amenity(townhall|courthouse|bank) tags, plus `shop=True` — every shop is a workplace, not just the food-shop subset that `food` surfaces as a destination category
+
+**Why per-query, not per-category, fetching**: a single combined multi-key query (e.g. the old catch-all `shop=True` merged into the same request as several `amenity` values) can be large/expensive enough that the Overpass API times out on it — and a bare `except Exception: pass` around one combined query silently empties the *whole* category on any failure. Splitting into separate per-tag queries, each independently caught, means one query failing only drops that query's contribution, not its neighbors.
+
+**Work overlap** (`_add_work_overlap`, `_WORK_OVERLAP_CATEGORIES = ("school", "food", "health")`): schools, food shops, and health facilities also employ workers, so their nodes are merged into `"work"` too (deduplicated) after all categories are fetched. `work`'s own `shop=True` query already covers non-food shops; the `food`→`work` merge mainly contributes `amenity=marketplace` nodes, which `shop=True` doesn't catch.
+
+**Snapping and caching**: each matched feature's centroid is snapped to the nearest walk-graph node via `ox.nearest_nodes()`; that node gets `node_type="amenity"` and `amenity_type=<category>` (first category to claim a node wins, via `setdefault`). The full `{category: [node_id, ...]}` result is cached as JSON to `cache_path` (default `data/raw/amenities.json`); `force_rebuild=False` with an existing cache file short-circuits straight to `load_amenity_index()`, skipping OSM entirely.
 
 ## 3. Population raster — `data/population.py`
 
@@ -53,7 +67,7 @@ Each transit edge's `frequencies` attribute is a plain Python list of `[start_s,
 - [ ] `python -m nairobi_heat_abm.data.graph --build` completes on the Nairobi bbox
 - [ ] `pytest tests/test_phase1.py -x` passes
 - [ ] Graph has `length` and `travel_time` on every edge
-- [ ] Amenity index has all four categories
+- [ ] Amenity index has all five categories (`school`, `food`, `health`, `other`, `work`)
 - [ ] Heat interpolation returns finite values inside the bbox
 
 See [Testing](testing.md) for fixture details.

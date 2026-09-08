@@ -61,11 +61,22 @@ class TravelBehaviorParams:
     transit_wait_tolerance_min: float = 15.0
     transit_wait_tolerance_std: float = 5.0
 
+    # Probability an agent's single simulated trip actually happens, keyed by the
+    # purpose/amenity type it would be headed to. 1.0 (default) = always travels;
+    # an agent that fails this draw stays inactive for the whole run (zero trips,
+    # zero heat exposure) — see model/simulation.py::_draw_travel_gate.
+    travel_probability: dict[str, float] = field(default_factory=lambda: {
+        "work": 1.0, "school": 1.0, "market": 1.0, "other": 1.0
+    })
+
     def __post_init__(self) -> None:
         total = sum(self.purpose_weights.values())
         self.purpose_weights = {k: v / total for k, v in self.purpose_weights.items()}
         if not 0.0 <= self.walk_only_share <= 1.0:
             raise ValueError("walk_only_share must be in [0, 1]")
+        for purpose, p in self.travel_probability.items():
+            if not 0.0 <= p <= 1.0:
+                raise ValueError(f"travel_probability[{purpose!r}] must be in [0, 1]")
 
 
 def params_to_json(p: TravelBehaviorParams) -> str:
@@ -83,10 +94,27 @@ def params_from_json(s: str) -> TravelBehaviorParams:
 @dataclass
 class ParamModifier:
     """A multiplicative adjustment to a subset of TravelBehaviorParams, applied for one
-    value of one demographic attribute (an age group, a gender, or an SES level)."""
+    value of one demographic attribute (an age group, a gender, or an SES level).
+
+    trip_rate_distribution and departure_profile (string enums on TravelBehaviorParams)
+    have no modifier here — multiplying a category label isn't meaningful."""
     trip_rate_mean_mult: float = 1.0
     trip_rate_std_mult: float = 1.0
     purpose_weight_mult: dict[str, float] = field(default_factory=dict)  # e.g. {"work": 1.3}
+
+    peak1_hour_mult: float = 1.0
+    peak1_weight_mult: float = 1.0
+    peak2_hour_mult: float = 1.0
+    peak2_weight_mult: float = 1.0
+    walk_only_share_mult: float = 1.0
+    walk_speed_mean_mps_mult: float = 1.0
+    walk_speed_std_mps_mult: float = 1.0
+    transit_wait_tolerance_min_mult: float = 1.0
+    transit_wait_tolerance_std_mult: float = 1.0
+
+    # Per-purpose multiplier on TravelBehaviorParams.travel_probability. Missing keys
+    # mean "no adjustment", same convention as purpose_weight_mult.
+    travel_probability_mult: dict[str, float] = field(default_factory=dict)  # e.g. {"market": 0.5}
 
 
 @dataclass

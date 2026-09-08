@@ -6,25 +6,38 @@ from pathlib import Path
 import networkx as nx
 import osmnx as ox
 
-AMENITY_TAGS: dict[str, dict] = {
-    "school": {"amenity": ["school", "university", "college"]},
-    "shop":   {"shop": True, "amenity": ["marketplace", "supermarket"]},
-    "health": {"amenity": ["hospital", "clinic", "pharmacy", "doctors"]},
-    "other":  {"amenity": ["place_of_worship", "community_centre", "library"]},
-    "work": {
-        "office": True,
-        "craft": True,
-        "landuse": ["commercial", "industrial"],
-        "building": ["office", "commercial", "industrial", "warehouse"],
-        "amenity": ["townhall", "courthouse", "bank"],
-    },
+# Each category is a list of separate tag queries, fetched and merged independently (see
+# build_amenity_index) rather than one combined multi-key query — a combined query (e.g. the
+# old "shop": True catch-all) can be large/expensive enough to time out against the Overpass
+# API, and a failure in one tag query would otherwise silently empty out the whole category.
+AMENITY_TAGS: dict[str, list[dict]] = {
+    "school": [{"amenity": ["school", "university", "college"]}],
+    # Food shops only: supermarkets and open-air/public markets. Deliberately excludes
+    # shop=convenience (too granular/ubiquitous to be a meaningful trip destination) and
+    # restaurants/cafes (amenity=restaurant|fast_food|cafe -- food service, not food shopping).
+    "food": [{"shop": ["supermarket"]}, {"amenity": ["marketplace"]}],
+    "health": [{"amenity": ["hospital", "clinic", "pharmacy", "doctors"]}],
+    "other": [{"amenity": ["place_of_worship", "community_centre", "library"]}],
+    "work": [
+        {"office": True},
+        {"craft": True},
+        {"landuse": ["commercial", "industrial"]},
+        {"building": ["office", "commercial", "industrial", "warehouse"]},
+        {"amenity": ["townhall", "courthouse", "bank"]},
+        # All shops (not just the food-shop subset in "food" above) employ workers, so
+        # they belong in "work" even though "food" only surfaces supermarkets/markets as
+        # a *destination* category. shop=True doesn't cover amenity=marketplace, which is
+        # why "food" is also merged in below via _WORK_OVERLAP_CATEGORIES.
+        {"shop": True},
+    ],
 }
 
-# Shops, schools, and health facilities also employ workers (not just serve clients/students/
-# patients), so they belong in the "work" destination pool too, on top of the work-specific
-# tags above. Node IDs already present in "work" (e.g. an office that's also snapped near a
-# bank) are not duplicated.
-_WORK_OVERLAP_CATEGORIES = ("school", "shop", "health")
+# Food shops, schools, and health facilities also employ workers (not just serve clients/
+# students/patients), so they belong in the "work" destination pool too, on top of the
+# work-specific tags above (which already include all shops via shop=True — this adds
+# amenity=marketplace, the one food-shop type shop=True doesn't cover). Node IDs already
+# present in "work" are not duplicated.
+_WORK_OVERLAP_CATEGORIES = ("school", "food", "health")
 
 
 def _add_work_overlap(result: dict[str, list[int]]) -> None:
@@ -45,8 +58,10 @@ def build_amenity_index(
     force_rebuild: bool = False,
 ) -> dict[str, list[int]]:
     """
-    Fetch OSM POIs for each category, snap to nearest graph node.
-    Returns { "school": [node_id, ...], "shop": [...], ... }
+    Fetch OSM POIs for each category, snap to nearest graph node. Each category's tag
+    queries (AMENITY_TAGS) are fetched and merged/deduped independently, so one query
+    timing out or erroring only drops that query's contribution, not the whole category.
+    Returns { "school": [node_id, ...], "food": [...], ... }
     """
     cache_path = Path(cache_path)
     if cache_path.exists() and not force_rebuild:
@@ -55,26 +70,32 @@ def build_amenity_index(
     south, west, north, east = bbox
     result: dict[str, list[int]] = {}
 
-    for category, tags in AMENITY_TAGS.items():
+    for category, tag_queries in AMENITY_TAGS.items():
+        seen: set[int] = set()
         node_ids: list[int] = []
-        try:
-            # osmnx 2.x bbox = (left, bottom, right, top) = (west, south, east, north)
-            gdf = ox.features_from_bbox(
-                bbox=(west, south, east, north),
-                tags=tags,
-            )
-            if not gdf.empty:
+        for tags in tag_queries:
+            try:
+                # osmnx 2.x bbox = (left, bottom, right, top) = (west, south, east, north)
+                gdf = ox.features_from_bbox(
+                    bbox=(west, south, east, north),
+                    tags=tags,
+                )
+                if gdf.empty:
+                    continue
                 centroids = gdf.geometry.centroid
                 lons = centroids.x.values
                 lats = centroids.y.values
                 snapped = ox.nearest_nodes(G, X=lons, Y=lats)
                 for nid in snapped:
-                    if G.has_node(nid):
-                        G.nodes[nid]["node_type"] = "amenity"
-                        G.nodes[nid].setdefault("amenity_type", category)
-                node_ids = [int(nid) for nid in snapped]
-        except Exception:
-            pass
+                    nid = int(nid)
+                    if nid in seen or not G.has_node(nid):
+                        continue
+                    seen.add(nid)
+                    G.nodes[nid]["node_type"] = "amenity"
+                    G.nodes[nid].setdefault("amenity_type", category)
+                    node_ids.append(nid)
+            except Exception:
+                pass
         result[category] = node_ids
 
     _add_work_overlap(result)

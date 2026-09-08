@@ -7,15 +7,15 @@ import pytest
 import rasterio
 import rasterio.transform
 
-from nairobi_heat_abm.data.amenities import _add_work_overlap, build_amenity_index
+from nairobi_heat_abm.data.amenities import AMENITY_TAGS, _add_work_overlap, build_amenity_index
 from nairobi_heat_abm.data.graph import _integrate_gtfs, build_graph
 from nairobi_heat_abm.data.heat import load_heat_surface, sample_temperature
 from nairobi_heat_abm.data.population import load_population_raster, load_population_rasters, sample_spawn_nodes
 
 
 @pytest.mark.slow
-def test_graph_builds_and_has_required_edge_attributes(small_bbox):
-    G = build_graph(small_bbox, force_rebuild=True)
+def test_graph_builds_and_has_required_edge_attributes(small_bbox, tmp_path):
+    G = build_graph(small_bbox, cache_path=tmp_path / "graph.graphml", force_rebuild=True)
     for u, v, data in G.edges(data=True):
         assert "length" in data
         assert "travel_time" in data
@@ -30,16 +30,25 @@ def test_graph_caches_and_reloads(small_bbox, tmp_path):
 
 
 @pytest.mark.slow
-def test_amenity_index_returns_expected_categories(small_bbox, tiny_graph):
-    index = build_amenity_index(small_bbox, tiny_graph, force_rebuild=True)
-    assert set(index.keys()) == {"school", "shop", "health", "other", "work"}
+def test_amenity_index_returns_expected_categories(small_bbox, tiny_graph, tmp_path):
+    index = build_amenity_index(
+        small_bbox, tiny_graph, cache_path=tmp_path / "amenities.json", force_rebuild=True,
+    )
+    assert set(index.keys()) == {"school", "food", "health", "other", "work"}
 
 
-def test_work_overlap_merges_shop_school_health_without_duplicates():
+def test_work_includes_all_shops_not_just_food():
+    # "food" (the destination category) is narrowed to supermarkets/markets only, but
+    # "work" must still see every shop as a potential employer, not just food shops.
+    assert {"shop": True} in AMENITY_TAGS["work"]
+    assert AMENITY_TAGS["food"] != [{"shop": True}]
+
+
+def test_work_overlap_merges_food_school_health_without_duplicates():
     result = {
         "work": [1, 2],
         "school": [2, 3],
-        "shop": [4],
+        "food": [4],
         "health": [5, 5],
         "other": [6],
     }

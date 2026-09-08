@@ -193,7 +193,7 @@ def mini_simulation_params(tiny_graph, flat_heat_surface, tmp_path):
 
     amenity_path = tmp_path / "amenities.json"
     nodes = list(tiny_graph.nodes())
-    amenity_data = {cat: [nodes[0]] for cat in ["school", "shop", "health", "other", "work"]}
+    amenity_data = {cat: [nodes[0]] for cat in ["school", "food", "health", "other", "work"]}
     amenity_path.write_text(json.dumps(amenity_data))
 
     from nairobi_heat_abm.model.simulation import SimulationParams

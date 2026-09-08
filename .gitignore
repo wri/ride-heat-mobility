@@ -20,6 +20,9 @@ data/raw/
 .ipynb_checkpoints/
 notebooks/cache/
 
+# osmnx HTTP response cache (created wherever osmnx is invoked from)
+/cache/
+
 # Background reading / local archives, not part of the project
 articles/
 nairobi-abm-plan.zip
