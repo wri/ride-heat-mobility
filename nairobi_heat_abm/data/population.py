@@ -111,6 +111,34 @@ def load_population_rasters(
     return rasters, transform
 
 
+def grid_transform_for_bbox(
+    bbox: tuple[float, float, float, float],  # (south, west, north, east)
+    shape: tuple[int, int],  # (rows, cols)
+) -> rasterio.Affine:
+    """Affine transform for a plain north-up grid covering bbox at the given shape —
+    used for accumulator grids (e.g. model/simulation.py's time-density grid) that
+    have no source raster of their own to inherit a transform from."""
+    south, west, north, east = bbox
+    rows, cols = shape
+    return rasterio.transform.from_bounds(west, south, east, north, cols, rows)
+
+
+def lonlat_to_rowcol(
+    transform: rasterio.Affine,
+    lons: np.ndarray,
+    lats: np.ndarray,
+    shape: tuple[int, int],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Inverse of rasterio.transform.xy: map lon/lat arrays to grid (row, col) indices
+    for `transform`, clipped to `shape` so a position exactly on (or numerically just
+    past, e.g. an agent standing at the bbox's own edge node) the grid's edge lands in
+    the nearest valid cell instead of raising or silently falling outside it."""
+    rows, cols = rasterio.transform.rowcol(transform, lons, lats)
+    rows = np.clip(np.asarray(rows), 0, shape[0] - 1)
+    cols = np.clip(np.asarray(cols), 0, shape[1] - 1)
+    return rows, cols
+
+
 def sample_spawn_nodes(
     density_array: np.ndarray,
     transform: rasterio.Affine,

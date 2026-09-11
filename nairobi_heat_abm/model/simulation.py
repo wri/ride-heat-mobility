@@ -13,7 +13,9 @@ from nairobi_heat_abm.data.demographics import (
     assign_ses, draw_age_gender, draw_age_gender_spatial, load_informal_settlement_boundaries,
 )
 from nairobi_heat_abm.data.heat import HeatSurface
-from nairobi_heat_abm.data.population import load_population_raster, load_population_rasters, sample_spawn_nodes
+from nairobi_heat_abm.data.population import (
+    grid_transform_for_bbox, load_population_raster, load_population_rasters, sample_spawn_nodes,
+)
 from nairobi_heat_abm.model.agent import (
     AgentPool, DemographicParams, MODE_TRANSIT, MODE_WALK, ParamModifier, TravelBehaviorParams,
 )
@@ -35,6 +37,10 @@ class SimulationParams:
     worldpop_tif_path: Path
     heat_surface: HeatSurface
     demographics: DemographicParams | None = None  # None = no age/gender/SES segmentation
+    # Shape (rows, cols) of the person-minutes-spent grid returned as
+    # ScenarioResult.time_density. Purely a visualization resolution knob — has no
+    # effect on simulation behavior/results, unlike every other field here.
+    time_density_grid_shape: tuple[int, int] = (200, 200)
 
 
 @dataclass
@@ -51,6 +57,14 @@ class ScenarioResult:
     agent_age_group: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.uint8))
     agent_gender: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.uint8))
     agent_ses: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.uint8))
+    # Person-minutes accumulated per grid cell over the whole run — "where the most
+    # people spent the most time," not just where they started or ended up. Shape
+    # (rows, cols) per params.time_density_grid_shape; zero-filled (empty) when a
+    # hand-built ScenarioResult doesn't set it (e.g. older test/notebook fixtures).
+    time_density: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
+    # rasterio.Affine mapping time_density's (row, col) to lon/lat — from
+    # data/population.py::grid_transform_for_bbox. None when time_density is empty.
+    time_density_transform: object = None
 
 
 def _trip_mode(route_edges: list[tuple], G) -> int:
@@ -162,12 +176,18 @@ def run(params: SimulationParams) -> ScenarioResult:
     trip_log: list[dict] = []
     t0 = time.perf_counter()
 
+    time_density = np.zeros(params.time_density_grid_shape, dtype=np.float64)
+    time_density_transform = grid_transform_for_bbox(params.bbox, params.time_density_grid_shape)
+
     for tick_i in range(n_ticks):
         departing = (departure_ticks == tick_i) & ~pool.active
         pool.active[departing] = True
 
         active_before_tick = pool.active.copy()
-        tick(pool, G, params.heat_surface, tick_i, params.timestep_s, params.start_hour)
+        tick(
+            pool, G, params.heat_surface, tick_i, params.timestep_s, params.start_hour,
+            time_density=time_density, time_density_transform=time_density_transform,
+        )
 
         # Only agents that transitioned active -> inactive *this* tick just finished;
         # otherwise a completed agent (route_index stays > 0) gets re-logged every
@@ -197,6 +217,8 @@ def run(params: SimulationParams) -> ScenarioResult:
         agent_age_group=pool.age_group.copy(),
         agent_gender=pool.gender.copy(),
         agent_ses=pool.ses.copy(),
+        time_density=time_density,
+        time_density_transform=time_density_transform,
     )
 
 

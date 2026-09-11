@@ -4,6 +4,7 @@ import numpy as np
 import networkx as nx
 
 from nairobi_heat_abm.data.heat import HeatSurface, sample_temperature
+from nairobi_heat_abm.data.population import lonlat_to_rowcol
 from nairobi_heat_abm.model.agent import AgentPool, MODE_WALK, MODE_WAIT, MODE_TRANSIT
 from nairobi_heat_abm.model.routing import _activate_edge
 
@@ -15,8 +16,17 @@ def tick(
     sim_tick: int,
     timestep_s: float,
     start_hour: int,
+    time_density: np.ndarray | None = None,
+    time_density_transform=None,
 ) -> None:
-    """Advance all active agents by one timestep. Mutates pool in-place."""
+    """Advance all active agents by one timestep. Mutates pool in-place.
+
+    If `time_density`/`time_density_transform` are given, also accumulates
+    person-minutes spent in each grid cell this tick (mutated in-place too) — reuses
+    the same interpolated agent positions computed below for heat sampling, so it's
+    "where people actually are, weighted by how long they're there," not just spawn
+    or destination points.
+    """
     active = pool.active
 
     # Count down transit-boarding wait; once it elapses, switch to the edge's real mode
@@ -63,3 +73,7 @@ def tick(
 
     temps = sample_temperature(surface, lons, lats, hour)
     pool.heat_exposure_degC_min[active] += temps * (timestep_s / 60.0)
+
+    if time_density is not None:
+        rows, cols = lonlat_to_rowcol(time_density_transform, lons, lats, time_density.shape)
+        np.add.at(time_density, (rows, cols), timestep_s / 60.0)

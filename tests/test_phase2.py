@@ -171,6 +171,53 @@ def test_heat_accumulates_correctly(tiny_graph, flat_heat_surface_30C):
     assert np.all(pool.heat_exposure_degC_min[pool.active] == pytest.approx(30.0, abs=0.5))
 
 
+def test_tick_accumulates_time_density(tiny_graph, flat_heat_surface):
+    from nairobi_heat_abm.data.population import grid_transform_for_bbox
+
+    pool = AgentPool.create(4)
+    nodes = list(tiny_graph.nodes())
+    u, v = nodes[0], nodes[1]
+    pool.active[:] = True
+    pool.mode[:] = MODE_WALK
+    pool.speed_mps[:] = 1.2
+    pool.edge_speed_mps[:] = 1.2
+    pool.edge_length[:] = 1_000_000.0  # very long edge: progress barely advances this tick
+    pool.edge_u[:] = u
+    pool.edge_v[:] = v
+    pool.route_edges = [[(u, v, 0, 0)] for _ in range(4)]
+
+    bbox = (-1.31, 36.795, -1.27, 36.825)  # covers tiny_graph's full 3x3 extent
+    transform = grid_transform_for_bbox(bbox, shape=(40, 40))
+    time_density = np.zeros((40, 40), dtype=np.float64)
+
+    tick(
+        pool, tiny_graph, flat_heat_surface, sim_tick=0, timestep_s=60.0, start_hour=6,
+        time_density=time_density, time_density_transform=transform,
+    )
+    # 4 agents effectively standing at node u for the full 60s tick = 4 person-minutes,
+    # all landing in the one grid cell nearest u (displacement this tick is negligible).
+    assert time_density.sum() == pytest.approx(4.0)
+    assert time_density.max() == pytest.approx(4.0)
+
+
+def test_tick_without_time_density_args_is_unaffected(tiny_graph, flat_heat_surface):
+    """time_density is fully optional — omitting it must not change tick()'s other effects."""
+    pool = AgentPool.create(3)
+    nodes = list(tiny_graph.nodes())
+    u, v = nodes[0], nodes[1]
+    pool.active[:] = True
+    pool.mode[:] = MODE_WALK
+    pool.speed_mps[:] = 1.2
+    pool.edge_speed_mps[:] = 1.2
+    pool.edge_length[:] = 120.0
+    pool.edge_u[:] = u
+    pool.edge_v[:] = v
+    pool.route_edges = [[(u, v, 0, 0)] for _ in range(3)]
+
+    tick(pool, tiny_graph, flat_heat_surface, sim_tick=0, timestep_s=60.0, start_hour=6)
+    assert np.all(pool.progress[pool.active] == pytest.approx(0.6, abs=1e-4))
+
+
 def test_tick_holds_waiting_agent_in_place_then_releases_it(transit_graph, flat_heat_surface):
     from nairobi_heat_abm.model.agent import MODE_TRANSIT, MODE_WAIT
 
@@ -212,6 +259,22 @@ def test_simulation_is_deterministic(mini_simulation_params):
     r1 = run(mini_simulation_params)
     r2 = run(mini_simulation_params)
     np.testing.assert_array_equal(r1.agent_exposure_degC_min, r2.agent_exposure_degC_min)
+
+
+def test_simulation_populates_time_density_grid(mini_simulation_params):
+    from nairobi_heat_abm.model.simulation import run
+    result = run(mini_simulation_params)
+    assert result.time_density.shape == mini_simulation_params.time_density_grid_shape
+    assert result.time_density.sum() > 0.0
+    assert result.time_density_transform is not None
+
+
+def test_simulation_time_density_grid_shape_is_configurable(mini_simulation_params):
+    import dataclasses
+    from nairobi_heat_abm.model.simulation import run
+    params = dataclasses.replace(mini_simulation_params, time_density_grid_shape=(10, 15))
+    result = run(params)
+    assert result.time_density.shape == (10, 15)
 
 
 def test_effective_behavior_combines_modifiers_multiplicatively():
