@@ -38,7 +38,7 @@ def build_graph(
     nx.set_node_attributes(G, "intersection", name="node_type")
 
     if gtfs_path is not None:
-        _integrate_gtfs(G, Path(gtfs_path))
+        _integrate_gtfs(G, Path(gtfs_path), bbox)
 
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     ox.save_graphml(G, filepath=cache_path)
@@ -68,12 +68,14 @@ def _haversine_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
     return float(R * 2.0 * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0))))
 
 
-def _integrate_gtfs(G: nx.MultiDiGraph, gtfs_path: Path) -> None:
+def _integrate_gtfs(
+    G: nx.MultiDiGraph, gtfs_path: Path, bbox: tuple[float, float, float, float],
+) -> None:
     """
     Parse a DigitalMatatus-style GTFS feed (a directory of .txt files, or a .zip
     containing them at its root) and mutate G in-place:
-      - one "transit_stop" node per stop_id, with bidirectional walk "access_link"
-        edges to the nearest existing walk-network node
+      - one "transit_stop" node per stop_id inside the study bbox, with bidirectional
+        walk "access_link" edges to the nearest existing walk-network node
       - one directed "transit" edge per consecutive stop-pair actually ridden on some
         trip, weighted by that trip's own stop_times.txt travel time between the two
 
@@ -95,6 +97,19 @@ def _integrate_gtfs(G: nx.MultiDiGraph, gtfs_path: Path) -> None:
         frequencies = _read_gtfs_table(gtfs_path, "frequencies.txt")
     except (FileNotFoundError, KeyError):
         frequencies = pd.DataFrame(columns=["trip_id", "start_time", "end_time", "headway_secs"])
+
+    # The DigitalMatatus feed covers a wider area than the walk network's bbox. A stop
+    # outside the bbox has no nearby walk node, so ox.nearest_nodes would snap it to
+    # whichever boundary node happens to be closest -- however far away that really is --
+    # producing long straight access_link edges that fan out from the network's edge.
+    south, west, north, east = bbox
+    in_bbox = (
+        stops["stop_lat"].between(south, north) & stops["stop_lon"].between(west, east)
+    )
+    n_dropped = int((~in_bbox).sum())
+    if n_dropped:
+        print(f"Dropping {n_dropped:,}/{len(stops):,} GTFS stops outside the study bbox.")
+    stops = stops.loc[in_bbox].reset_index(drop=True)
 
     # --- Stops: one node per stop_id ---
     stop_ids = sorted(stops["stop_id"].unique())
