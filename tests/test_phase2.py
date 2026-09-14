@@ -15,7 +15,7 @@ from nairobi_heat_abm.model.agent import (
 import networkx as nx
 
 from nairobi_heat_abm.model.routing import (
-    _transit_edges_subgraph, _transit_stops_subgraph, assign_routes, route_transit, route_walk,
+    _distinct_bands, _real_walk_cost, assign_routes, route_transit, route_walk,
 )
 from nairobi_heat_abm.model.scheduler import tick
 
@@ -36,75 +36,153 @@ def test_params_json_roundtrip():
     assert p == p2
 
 
+def test_real_walk_cost_ignores_bogus_travel_time_on_ordinary_edges():
+    """
+    Regression test for a real bug: osmnx's add_edge_speeds()/add_edge_travel_times()
+    (data/graph.py::build_graph()) impute VEHICLE speed for ordinary street edges even
+    though the network is fetched as network_type="walk" -- so an edge's own
+    "travel_time" can be wildly faster than real walking pace (observed: a 30km stretch
+    showing ~33 minutes, i.e. ~54 km/h). _real_walk_cost() must recompute
+    length/walk_speed_mps for anything that isn't a transit ride, ignoring that stored
+    value entirely -- otherwise a route-choice comparison against a real transit cost
+    would always find "walking" absurdly cheap, exactly what happened before this fix.
+    """
+    bogus_fast_edge = {"length": 1200.0, "travel_time": 1.0}  # travel_time implies ~1200 m/s
+    assert _real_walk_cost(bogus_fast_edge, walk_speed_mps=1.2) == pytest.approx(1000.0)
+
+    # A transit edge's travel_time IS trustworthy (real GTFS ride time) and must be used as-is.
+    transit_edge = {"length": 1200.0, "travel_time": 500.0, "edge_type": "transit"}
+    assert _real_walk_cost(transit_edge, walk_speed_mps=1.2) == pytest.approx(500.0)
+
+
 def test_walk_route_returns_connected_edges(tiny_graph):
     nodes = list(tiny_graph.nodes())
     origin, dest = nodes[0], nodes[-1]
-    edges = route_walk(tiny_graph, origin, dest)
+    edges = route_walk(tiny_graph, origin, dest, walk_speed_mps=1.2)
     assert len(edges) > 0
     for i in range(len(edges) - 1):
         assert edges[i][1] == edges[i + 1][0]
 
 
-def test_route_transit_falls_back_to_walk_when_graph_has_no_stops(tiny_graph):
+def test_route_transit_falls_back_to_walk_when_graph_has_no_transit(tiny_graph):
     nodes = list(tiny_graph.nodes())
     origin, dest = nodes[0], nodes[-1]
-    stops_subgraph = _transit_stops_subgraph(tiny_graph)
-    transit_subgraph = _transit_edges_subgraph(tiny_graph)
-    assert stops_subgraph.number_of_nodes() == 0
+    bands = _distinct_bands(tiny_graph)
+    assert bands == []
 
     transit_edges = route_transit(
         tiny_graph, origin, dest, departure_tick=0, wait_tolerance_min=15.0,
-        timestep_s=60.0, stops_subgraph=stops_subgraph, transit_subgraph=transit_subgraph,
+        timestep_s=60.0, bands=bands, rng=np.random.default_rng(0), walk_speed_mps=1.2,
     )
-    walk_edges = route_walk(tiny_graph, origin, dest)
+    walk_edges = route_walk(tiny_graph, origin, dest, walk_speed_mps=1.2)
     assert transit_edges == walk_edges
 
 
 def test_route_transit_rides_during_a_serviced_band(transit_graph):
     nodes = sorted(transit_graph.nodes())
     origin, dest = nodes[0], nodes[2]  # same nodes stop_a/stop_b are attached to
-    stops_subgraph = _transit_stops_subgraph(transit_graph)
-    transit_subgraph = _transit_edges_subgraph(transit_graph)
+    bands = _distinct_bands(transit_graph)
 
-    # 6:00:00 -> falls in the 300s-headway band
+    # 6:00:00 -> falls in the 300s-headway band; riding is far cheaper than walking
+    # the ~2km between these nodes even with the band's expected wait added.
     edges = route_transit(
-        transit_graph, origin, dest, departure_tick=0, wait_tolerance_min=15.0,
-        timestep_s=60.0, stops_subgraph=stops_subgraph, transit_subgraph=transit_subgraph,
+        transit_graph, origin, dest, departure_tick=0, wait_tolerance_min=60.0,
+        timestep_s=60.0, bands=bands, rng=np.random.default_rng(0), walk_speed_mps=1.2,
     )
     assert any(transit_graph[u][v][k].get("edge_type") == "transit" for u, v, k, _ in edges)
     wait_ticks_values = [w for *_, w in edges]
-    assert max(wait_ticks_values) == round((300.0 / 2.0) / 60.0)  # expected wait = headway / 2
+    assert max(wait_ticks_values) >= 0
     assert sum(1 for w in wait_ticks_values if w > 0) == 1  # only the boarding edge waits
 
 
-def test_route_transit_raises_when_wait_exceeds_tolerance(transit_graph):
+def test_route_transit_prefers_walking_when_transit_is_not_worth_it(transit_graph):
+    """
+    The unified search must be able to choose NOT to use transit when walking is
+    genuinely faster -- mode choice should emerge from real comparative time, not be
+    forced. A very short walk between two adjacent grid nodes should never detour
+    through the stops just to ride.
+    """
+    nodes = sorted(transit_graph.nodes())
+    origin, dest = nodes[0], nodes[1]  # adjacent grid nodes, ~1 km apart -- no stops here
+    bands = _distinct_bands(transit_graph)
+
+    edges = route_transit(
+        transit_graph, origin, dest, departure_tick=0, wait_tolerance_min=60.0,
+        timestep_s=60.0, bands=bands, rng=np.random.default_rng(0), walk_speed_mps=1.2,
+    )
+    assert not any(transit_graph[u][v][k].get("edge_type") == "transit" for u, v, k, _ in edges)
+    assert all(w == 0 for *_, w in edges)
+
+
+def test_route_transit_wait_time_is_exponential_with_mean_headway(transit_graph):
+    """
+    The boarding wait is drawn from Exponential(mean=headway) -- a stochastic model of
+    matatus as an irregular, memoryless (Poisson) arrival process, not the deterministic
+    headway/2 a fixed-interval schedule would give. Verified statistically over many
+    draws rather than as a single hardcoded value, since each draw is random.
+    """
     nodes = sorted(transit_graph.nodes())
     origin, dest = nodes[0], nodes[2]
-    stops_subgraph = _transit_stops_subgraph(transit_graph)
-    transit_subgraph = _transit_edges_subgraph(transit_graph)
+    bands = _distinct_bands(transit_graph)
+    rng = np.random.default_rng(123)
 
-    # 10:00:00 -> the 900s-headway band; expected wait 450s exceeds a 5-min tolerance
-    departure_tick = (10 * 3600 - 6 * 3600) // 60
-    with pytest.raises(nx.NetworkXNoPath):
-        route_transit(
-            transit_graph, origin, dest, departure_tick=departure_tick, wait_tolerance_min=5.0,
-            timestep_s=60.0, stops_subgraph=stops_subgraph, transit_subgraph=transit_subgraph,
+    headway_s = 300.0
+    n_draws = 4000
+    waits_s = []
+    for _ in range(n_draws):
+        edges = route_transit(
+            transit_graph, origin, dest, departure_tick=0, wait_tolerance_min=120.0,
+            timestep_s=1.0, bands=bands, rng=rng, walk_speed_mps=1.2,
         )
+        wait_ticks = max(w for *_, w in edges)
+        waits_s.append(wait_ticks * 1.0)  # timestep_s=1.0 -> ticks == seconds
+
+    mean_wait = sum(waits_s) / len(waits_s)
+    # Exponential(mean=headway_s) sample mean should land close to headway_s, not
+    # headway_s/2 -- generous tolerance since this is a statistical, not exact, check.
+    assert headway_s * 0.85 < mean_wait < headway_s * 1.15
 
 
-def test_route_transit_raises_outside_all_frequency_bands(transit_graph):
+class _FixedDrawRNG:
+    """Stand-in for np.random.Generator that always returns a fixed exponential draw --
+    lets the tolerance-comparison branch be tested deterministically, independent of
+    the real distribution's randomness (covered separately, statistically, above)."""
+
+    def __init__(self, wait_s: float):
+        self.wait_s = wait_s
+
+    def exponential(self, scale: float) -> float:
+        return self.wait_s
+
+
+def test_route_transit_falls_back_to_walk_when_wait_exceeds_tolerance(transit_graph):
     nodes = sorted(transit_graph.nodes())
     origin, dest = nodes[0], nodes[2]
-    stops_subgraph = _transit_stops_subgraph(transit_graph)
-    transit_subgraph = _transit_edges_subgraph(transit_graph)
+    bands = _distinct_bands(transit_graph)
+
+    # 10:00:00 -> the 900s-headway band; force a 1000s draw against a 5-min tolerance
+    departure_tick = (10 * 3600 - 6 * 3600) // 60
+    edges = route_transit(
+        transit_graph, origin, dest, departure_tick=departure_tick, wait_tolerance_min=5.0,
+        timestep_s=60.0, bands=bands, rng=_FixedDrawRNG(1000.0), walk_speed_mps=1.2,
+    )
+    walk_edges = route_walk(transit_graph, origin, dest, walk_speed_mps=1.2)
+    assert edges == walk_edges
+
+
+def test_route_transit_falls_back_to_walk_outside_all_frequency_bands(transit_graph):
+    nodes = sorted(transit_graph.nodes())
+    origin, dest = nodes[0], nodes[2]
+    bands = _distinct_bands(transit_graph)
 
     # 22:00:00 -> after the last band ends at 21:00:00
     departure_tick = (22 * 3600 - 6 * 3600) // 60
-    with pytest.raises(nx.NetworkXNoPath):
-        route_transit(
-            transit_graph, origin, dest, departure_tick=departure_tick, wait_tolerance_min=60.0,
-            timestep_s=60.0, stops_subgraph=stops_subgraph, transit_subgraph=transit_subgraph,
-        )
+    edges = route_transit(
+        transit_graph, origin, dest, departure_tick=departure_tick, wait_tolerance_min=60.0,
+        timestep_s=60.0, bands=bands, rng=np.random.default_rng(0), walk_speed_mps=1.2,
+    )
+    walk_edges = route_walk(transit_graph, origin, dest, walk_speed_mps=1.2)
+    assert edges == walk_edges
 
 
 def test_assign_routes_activates_wait_mode_for_a_boarding_transit_agent(transit_graph):
@@ -133,6 +211,34 @@ def test_assign_routes_activates_wait_mode_for_a_boarding_transit_agent(transit_
     if first_wait > 0:
         assert pool.mode[0] == MODE_WAIT
         assert pool.wait_ticks_remaining[0] == first_wait
+
+
+def test_assign_routes_no_path_sets_departure_sentinel(tiny_graph):
+    """
+    A routing failure must set departure_ticks to the -1 "never travels" sentinel
+    (matching simulation.py's own use of it for a failed travel-probability gate) so
+    simulation.run()'s tick loop never reactivates the agent at its original departure
+    tick. Without this, an empty pool.route_edges would immediately satisfy
+    route_index >= len(route_edges) on that tick, and the agent would be logged into
+    trip_log as a bogus zero-length, zero-exposure "completed" trip.
+    """
+    G = tiny_graph.copy()
+    G.add_node(9999, x=36.900, y=-1.200, node_type="intersection")  # isolated: no edges
+
+    pool = AgentPool.create(1)
+    nodes = sorted(tiny_graph.nodes())
+    origin_nodes = np.array([nodes[0]])
+    dest_nodes = np.array([9999])  # unreachable from origin_nodes[0]
+    departure_ticks = np.array([5], dtype=np.int32)
+    behavior = TravelBehaviorParams(walk_only_share=1.0)
+    rng = np.random.default_rng(0)
+
+    assign_routes(pool, G, origin_nodes, dest_nodes, departure_ticks, behavior, rng,
+                   start_hour=6, timestep_s=60.0)
+
+    assert pool.active[0] == False
+    assert pool.route_edges[0] == []
+    assert departure_ticks[0] == -1
 
 
 def test_tick_advances_progress(tiny_graph, flat_heat_surface):
@@ -169,6 +275,39 @@ def test_heat_accumulates_correctly(tiny_graph, flat_heat_surface_30C):
     tick(pool, tiny_graph, flat_heat_surface_30C, sim_tick=0, timestep_s=60.0, start_hour=6)
     # 30 °C × 1 minute = 30 °C·min
     assert np.all(pool.heat_exposure_degC_min[pool.active] == pytest.approx(30.0, abs=0.5))
+
+
+def test_transit_riding_excluded_from_heat_and_time_density(tiny_graph, flat_heat_surface_30C):
+    """
+    MODE_TRANSIT (actually riding, not waiting) must NOT accumulate heat exposure or
+    time_density -- a matatu passenger isn't exposed to ambient heat the way a walking
+    or waiting pedestrian is. Only outdoor legs (walk, access-link walk, wait) count.
+    """
+    from nairobi_heat_abm.data.population import grid_transform_for_bbox
+    from nairobi_heat_abm.model.agent import MODE_TRANSIT
+
+    pool = AgentPool.create(5)
+    nodes = list(tiny_graph.nodes())
+    u, v = nodes[0], nodes[1]
+    pool.active[:] = True
+    pool.mode[:] = MODE_TRANSIT
+    pool.speed_mps[:] = 1.2
+    pool.edge_speed_mps[:] = 1.2
+    pool.edge_length[:] = 120.0
+    pool.edge_u[:] = u
+    pool.edge_v[:] = v
+    pool.route_edges = [[(u, v, 0, 0)] for _ in range(5)]
+
+    bbox = (-1.31, 36.795, -1.27, 36.825)
+    transform = grid_transform_for_bbox(bbox, shape=(40, 40))
+    time_density = np.zeros((40, 40), dtype=np.float64)
+
+    tick(
+        pool, tiny_graph, flat_heat_surface_30C, sim_tick=0, timestep_s=60.0, start_hour=6,
+        time_density=time_density, time_density_transform=transform,
+    )
+    assert np.all(pool.heat_exposure_degC_min[pool.active] == 0.0)
+    assert time_density.sum() == 0.0
 
 
 def test_tick_accumulates_time_density(tiny_graph, flat_heat_surface):

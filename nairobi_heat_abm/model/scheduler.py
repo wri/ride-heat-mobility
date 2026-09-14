@@ -26,6 +26,12 @@ def tick(
     the same interpolated agent positions computed below for heat sampling, so it's
     "where people actually are, weighted by how long they're there," not just spawn
     or destination points.
+
+    Both heat_exposure_degC_min and time_density are OUTDOOR exposure only: an agent
+    riding inside a matatu (MODE_TRANSIT) is excluded from both, since they aren't
+    exposed to ambient heat the way a pedestrian walking or waiting at a stop is.
+    Walking (including the access-link legs to/from a stop) and MODE_WAIT (standing at
+    a stop before boarding) both still count — only the in-vehicle segment is skipped.
     """
     active = pool.active
 
@@ -55,24 +61,25 @@ def tick(
         u, v, key, wait_ticks = pool.route_edges[i][pool.route_index[i]]
         _activate_edge(pool, i, G, u, v, key, wait_ticks)
 
-    # Heat accumulation (vectorised)
+    # Heat accumulation (vectorised) — outdoor agents only (see docstring above).
     active = pool.active  # re-read after mutations
-    if not active.any():
+    outdoor = active & (pool.mode != MODE_TRANSIT)
+    if not outdoor.any():
         return
 
     hour = int(start_hour + sim_tick * timestep_s // 3600)
 
-    u_lons = np.array([G.nodes[u]["x"] for u in pool.edge_u[active]])
-    u_lats = np.array([G.nodes[u]["y"] for u in pool.edge_u[active]])
-    v_lons = np.array([G.nodes[v]["x"] for v in pool.edge_v[active]])
-    v_lats = np.array([G.nodes[v]["y"] for v in pool.edge_v[active]])
+    u_lons = np.array([G.nodes[u]["x"] for u in pool.edge_u[outdoor]])
+    u_lats = np.array([G.nodes[u]["y"] for u in pool.edge_u[outdoor]])
+    v_lons = np.array([G.nodes[v]["x"] for v in pool.edge_v[outdoor]])
+    v_lats = np.array([G.nodes[v]["y"] for v in pool.edge_v[outdoor]])
 
-    p = pool.progress[active]
+    p = pool.progress[outdoor]
     lons = u_lons + p * (v_lons - u_lons)
     lats = u_lats + p * (v_lats - u_lats)
 
     temps = sample_temperature(surface, lons, lats, hour)
-    pool.heat_exposure_degC_min[active] += temps * (timestep_s / 60.0)
+    pool.heat_exposure_degC_min[outdoor] += temps * (timestep_s / 60.0)
 
     if time_density is not None:
         rows, cols = lonlat_to_rowcol(time_density_transform, lons, lats, time_density.shape)

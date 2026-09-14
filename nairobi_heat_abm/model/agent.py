@@ -183,7 +183,9 @@ class AgentPool:
     gender: np.ndarray       # uint8,   shape (n,) — see GENDER_* codes
     ses: np.ndarray          # uint8,   shape (n,) — see SES_* codes
 
-    # Exposure accumulation (°C × minutes)
+    # Exposure accumulation (°C × minutes) — OUTDOOR only: scheduler.py::tick() excludes
+    # MODE_TRANSIT (in-vehicle riding) ticks, since a matatu passenger isn't exposed to
+    # ambient heat the way a walking/waiting pedestrian is.
     heat_exposure_degC_min: np.ndarray  # float32, shape (n,)
 
     # Routing

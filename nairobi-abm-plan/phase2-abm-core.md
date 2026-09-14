@@ -204,33 +204,40 @@ def route_transit(
     departure_tick: int,
     wait_tolerance_min: float,
     timestep_s: float,
-    stops_subgraph: nx.MultiDiGraph,     # all transit_stop nodes — see below
-    transit_subgraph: nx.MultiDiGraph,   # only edge_type=="transit" edges
+    bands: list[tuple[int, int]],   # distinct (start_s, end_s) frequency-band boundaries in G
+    rng: np.random.Generator,
     start_hour: int = 6,
 ) -> list[tuple[int, int, int, int]]:
     """
-    Three-phase routing:
-      Phase 1: walk origin -> nearest transit stop (via route_walk on the full graph)
-      Phase 2: shortest path stop -> stop on the transit-only subgraph (free transfers
-               wherever two routes share a stop node; only the first boarding's wait is
-               charged, not any transfer wait)
-      Phase 3: walk final stop -> destination
-    Falls back to a full route_walk() (all wait_ticks=0) if the graph has no transit
-    stops/edges at all.
+    A single nx.shortest_path() over the WHOLE graph (walk + access-link + transit
+    edges together) -- not a three-phase nearest-stop-then-ride search. Each transit
+    edge's planning weight is travel_time + expected_wait_for_this_band (mean =
+    headway, via _band_edge_weight()); walk/access-link edges just use travel_time.
+    So mode choice and route choice both emerge from real comparative time -- Dijkstra
+    can pick pure walking when that's genuinely cheaper, with no forced transit
+    consideration and no separate nearest-stop snapping step.
+    Falls back to route_walk() if G has no transit edges, the departure time falls
+    outside every band, the chosen boarding edge has no coverage at the agent's exact
+    time, or the actual drawn wait exceeds wait_tolerance_min.
     """
 ```
 
 The feed is frequency-based (see [1.2](phase1-data-infrastructure.md) `_integrate_gtfs`)
 — there's no literal departure clock time to match against `departure_tick`, only
-headway bands (`frequencies`, stored on each transit edge). So "is there a usable
-matatu" is answered by: look up the headway band covering the agent's actual departure
-time-of-day on the FIRST ride edge's trip; expected wait = `headway / 2` (a rider
-arriving at a random time under headway-based service waits half the headway on
-average); if no band covers that time, or the expected wait exceeds
-`wait_tolerance_min`, raise `nx.NetworkXNoPath` exactly like "no path found" — the
-caller (`assign_routes`) falls that agent back to a walk-only trip. `stops_subgraph` and
-`transit_subgraph` are precomputed once per `assign_routes()` call (not per agent) since
-neither depends on any agent's origin/destination.
+headway bands (`frequencies`, stored on each transit edge). `_distinct_bands()` derives
+the set of real band boundaries directly from the data (currently 6-9/9-15/15-21) rather
+than hardcoding them, and `assign_routes()` computes this once per call, not per agent.
+For **route selection**, each transit edge's weight uses the EXPECTED wait for whichever
+band the agent departs in (mean = headway) — this is what lets Dijkstra fairly compare a
+frequent-but-slower route against an infrequent-but-faster one. Once a path is chosen,
+if it boards a matatu at all, the ACTUAL wait for that first boarding is drawn from
+`Exponential(mean=headway)` at the agent's exact departure time (not the band estimate)
+— plan on the expectation, experience the randomness. Only the first boarding's wait is
+charged; transfers to another route at a shared stop are free. If that drawn wait
+exceeds `wait_tolerance_min` (or the edge has no coverage at the exact time, or no band
+covers the departure time, or G has no transit at all), `route_transit()` falls back to
+a plain `route_walk()` instead of failing the trip outright — `route_walk()` itself
+excludes `edge_type=="transit"` edges so a walk trip can never silently ride for free.
 
 ### Batch route assignment
 

@@ -58,9 +58,12 @@ class ScenarioResult:
     agent_gender: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.uint8))
     agent_ses: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.uint8))
     # Person-minutes accumulated per grid cell over the whole run — "where the most
-    # people spent the most time," not just where they started or ended up. Shape
-    # (rows, cols) per params.time_density_grid_shape; zero-filled (empty) when a
-    # hand-built ScenarioResult doesn't set it (e.g. older test/notebook fixtures).
+    # people spent the most time," not just where they started or ended up. OUTDOOR
+    # only: excludes in-vehicle transit riding (MODE_TRANSIT), so this reflects walking
+    # (including access-link legs to/from a stop) and waiting at a stop, not time spent
+    # inside a matatu. Shape (rows, cols) per params.time_density_grid_shape;
+    # zero-filled (empty) when a hand-built ScenarioResult doesn't set it (e.g. older
+    # test/notebook fixtures).
     time_density: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     # rasterio.Affine mapping time_density's (row, col) to lon/lat — from
     # data/population.py::grid_transform_for_bbox. None when time_density is empty.

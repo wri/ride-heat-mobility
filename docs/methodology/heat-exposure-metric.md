@@ -10,6 +10,8 @@ The model accumulates heat exposure for each agent in **°C·min** (degree-Celsi
 exposure += temperature_°C × (timestep_s / 60)
 ```
 
+"Outdoor" is enforced in code, not just in name: `model/scheduler.py::tick()` skips this accumulation entirely while an agent's mode is `MODE_TRANSIT` (actually riding a matatu, as opposed to `MODE_WAIT` standing at a stop) — a passenger inside a vehicle isn't exposed to ambient heat the way a walking or waiting pedestrian is.
+
 <!-- TODO: contrast this with wet-bulb globe temperature (WBGT), physiological equivalent temperature (PET), and simpler ambient temperature approaches; justify why °C·min is tractable given our input data -->
 
 ## Why not a comfort index?
