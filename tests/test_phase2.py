@@ -71,7 +71,7 @@ def test_route_transit_falls_back_to_walk_when_graph_has_no_transit(tiny_graph):
     assert bands == []
 
     transit_edges = route_transit(
-        tiny_graph, origin, dest, departure_tick=0, wait_tolerance_min=15.0,
+        tiny_graph, origin, dest, departure_tick=0, wait_tolerance_min=15.0, mean_wait_min=5.0,
         timestep_s=60.0, bands=bands, rng=np.random.default_rng(0), walk_speed_mps=1.2,
     )
     walk_edges = route_walk(tiny_graph, origin, dest, walk_speed_mps=1.2)
@@ -86,7 +86,7 @@ def test_route_transit_rides_during_a_serviced_band(transit_graph):
     # 6:00:00 -> falls in the 300s-headway band; riding is far cheaper than walking
     # the ~2km between these nodes even with the band's expected wait added.
     edges = route_transit(
-        transit_graph, origin, dest, departure_tick=0, wait_tolerance_min=60.0,
+        transit_graph, origin, dest, departure_tick=0, wait_tolerance_min=60.0, mean_wait_min=5.0,
         timestep_s=60.0, bands=bands, rng=np.random.default_rng(0), walk_speed_mps=1.2,
     )
     assert any(transit_graph[u][v][k].get("edge_type") == "transit" for u, v, k, _ in edges)
@@ -107,40 +107,76 @@ def test_route_transit_prefers_walking_when_transit_is_not_worth_it(transit_grap
     bands = _distinct_bands(transit_graph)
 
     edges = route_transit(
-        transit_graph, origin, dest, departure_tick=0, wait_tolerance_min=60.0,
+        transit_graph, origin, dest, departure_tick=0, wait_tolerance_min=60.0, mean_wait_min=5.0,
         timestep_s=60.0, bands=bands, rng=np.random.default_rng(0), walk_speed_mps=1.2,
     )
     assert not any(transit_graph[u][v][k].get("edge_type") == "transit" for u, v, k, _ in edges)
     assert all(w == 0 for *_, w in edges)
 
 
-def test_route_transit_wait_time_is_exponential_with_mean_headway(transit_graph):
-    """
-    The boarding wait is drawn from Exponential(mean=headway) -- a stochastic model of
-    matatus as an irregular, memoryless (Poisson) arrival process, not the deterministic
-    headway/2 a fixed-interval schedule would give. Verified statistically over many
-    draws rather than as a single hardcoded value, since each draw is random.
-    """
+def _sample_boarding_waits_s(transit_graph, departure_tick, mean_wait_min, n_draws=4000):
     nodes = sorted(transit_graph.nodes())
     origin, dest = nodes[0], nodes[2]
     bands = _distinct_bands(transit_graph)
     rng = np.random.default_rng(123)
-
-    headway_s = 300.0
-    n_draws = 4000
     waits_s = []
     for _ in range(n_draws):
         edges = route_transit(
-            transit_graph, origin, dest, departure_tick=0, wait_tolerance_min=120.0,
-            timestep_s=1.0, bands=bands, rng=rng, walk_speed_mps=1.2,
+            transit_graph, origin, dest, departure_tick=departure_tick, wait_tolerance_min=600.0,
+            mean_wait_min=mean_wait_min, timestep_s=1.0, bands=bands, rng=rng, walk_speed_mps=1.2,
         )
-        wait_ticks = max(w for *_, w in edges)
-        waits_s.append(wait_ticks * 1.0)  # timestep_s=1.0 -> ticks == seconds
+        waits_s.append(max(w for *_, w in edges) * 1.0)  # timestep_s=1.0 -> ticks == seconds
+    return np.array(waits_s)
 
-    mean_wait = sum(waits_s) / len(waits_s)
-    # Exponential(mean=headway_s) sample mean should land close to headway_s, not
-    # headway_s/2 -- generous tolerance since this is a statistical, not exact, check.
-    assert headway_s * 0.85 < mean_wait < headway_s * 1.15
+
+def test_route_transit_wait_time_is_exponential_with_survey_mean(transit_graph):
+    """
+    The boarding wait is drawn from Exponential(mean=mean_wait_min) -- a stochastic,
+    memoryless model of matatu/bus departures whose mean is calibrated from the WRI
+    rider survey (Q15), not from the GTFS headway. Verified statistically over many
+    draws rather than as a single hardcoded value, since each draw is random.
+    """
+    mean_wait_min = 2.0
+    waits_s = _sample_boarding_waits_s(transit_graph, departure_tick=0, mean_wait_min=mean_wait_min)
+    expected_s = mean_wait_min * 60.0
+    # generous tolerance since this is a statistical, not exact, check
+    assert expected_s * 0.9 < waits_s.mean() < expected_s * 1.1
+    # exponential shape, not e.g. a fixed wait: median ~ ln(2) * mean
+    assert expected_s * np.log(2) * 0.85 < np.median(waits_s) < expected_s * np.log(2) * 1.15
+
+
+def test_route_transit_wait_time_does_not_depend_on_gtfs_headway(transit_graph):
+    """The 6-9am (300s headway) and 9am-9pm (900s headway) bands must give the same
+    wait distribution -- the GTFS headway only decides whether a route is in service."""
+    peak = _sample_boarding_waits_s(transit_graph, departure_tick=0, mean_wait_min=2.0)
+    midday_tick = (10 * 3600 - 6 * 3600)  # 10:00:00 at timestep_s=1.0
+    midday = _sample_boarding_waits_s(transit_graph, departure_tick=midday_tick, mean_wait_min=2.0)
+    assert abs(peak.mean() - midday.mean()) < 0.1 * 120.0
+
+
+def test_route_transit_planning_weighs_the_mean_wait(transit_graph):
+    """The expected wait used for route planning is mean_wait_min, so a long enough
+    mean wait makes walking the ~2 km (~28 min at 1.2 m/s) cheaper than a 5-minute
+    ride plus the expected wait -- the agent then walks without ever drawing a wait."""
+    nodes = sorted(transit_graph.nodes())
+    origin, dest = nodes[0], nodes[2]
+    bands = _distinct_bands(transit_graph)
+
+    def rides(mean_wait_min):
+        edges = route_transit(
+            transit_graph, origin, dest, departure_tick=0, wait_tolerance_min=600.0,
+            mean_wait_min=mean_wait_min, timestep_s=60.0, bands=bands,
+            rng=np.random.default_rng(0), walk_speed_mps=1.2,
+        )
+        return any(transit_graph[u][v][k].get("edge_type") == "transit" for u, v, k, _ in edges)
+
+    assert rides(mean_wait_min=5.0)
+    assert not rides(mean_wait_min=60.0)
+
+
+def test_transit_mean_wait_min_must_be_positive():
+    with pytest.raises(ValueError):
+        TravelBehaviorParams(transit_mean_wait_min=0.0)
 
 
 class _FixedDrawRNG:
@@ -163,7 +199,7 @@ def test_route_transit_falls_back_to_walk_when_wait_exceeds_tolerance(transit_gr
     # 10:00:00 -> the 900s-headway band; force a 1000s draw against a 5-min tolerance
     departure_tick = (10 * 3600 - 6 * 3600) // 60
     edges = route_transit(
-        transit_graph, origin, dest, departure_tick=departure_tick, wait_tolerance_min=5.0,
+        transit_graph, origin, dest, departure_tick=departure_tick, wait_tolerance_min=5.0, mean_wait_min=5.0,
         timestep_s=60.0, bands=bands, rng=_FixedDrawRNG(1000.0), walk_speed_mps=1.2,
     )
     walk_edges = route_walk(transit_graph, origin, dest, walk_speed_mps=1.2)
@@ -178,7 +214,7 @@ def test_route_transit_falls_back_to_walk_outside_all_frequency_bands(transit_gr
     # 22:00:00 -> after the last band ends at 21:00:00
     departure_tick = (22 * 3600 - 6 * 3600) // 60
     edges = route_transit(
-        transit_graph, origin, dest, departure_tick=departure_tick, wait_tolerance_min=60.0,
+        transit_graph, origin, dest, departure_tick=departure_tick, wait_tolerance_min=60.0, mean_wait_min=5.0,
         timestep_s=60.0, bands=bands, rng=np.random.default_rng(0), walk_speed_mps=1.2,
     )
     walk_edges = route_walk(transit_graph, origin, dest, walk_speed_mps=1.2)

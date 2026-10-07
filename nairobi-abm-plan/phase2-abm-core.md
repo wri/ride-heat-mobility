@@ -41,6 +41,7 @@ class TravelBehaviorParams:
     walk_speed_std_mps: float = 0.15
     transit_wait_tolerance_min: float = 15.0
     transit_wait_tolerance_std: float = 5.0
+    transit_mean_wait_min: float = 5.65  # Exponential boarding-wait mean, fit to WRI rider survey Q15
 
     def __post_init__(self):
         total = sum(self.purpose_weights.values())
@@ -203,6 +204,7 @@ def route_transit(
     destination_node: int,
     departure_tick: int,
     wait_tolerance_min: float,
+    mean_wait_min: float,           # TravelBehaviorParams.transit_mean_wait_min
     timestep_s: float,
     bands: list[tuple[int, int]],   # distinct (start_s, end_s) frequency-band boundaries in G
     rng: np.random.Generator,
@@ -211,8 +213,9 @@ def route_transit(
     """
     A single nx.shortest_path() over the WHOLE graph (walk + access-link + transit
     edges together) -- not a three-phase nearest-stop-then-ride search. Each transit
-    edge's planning weight is travel_time + expected_wait_for_this_band (mean =
-    headway, via _band_edge_weight()); walk/access-link edges just use travel_time.
+    edge's planning weight is travel_time + mean_wait_min (via _band_edge_weight()),
+    for edges in service during the agent's band; walk/access-link edges use the
+    agent's real walking time.
     So mode choice and route choice both emerge from real comparative time -- Dijkstra
     can pick pure walking when that's genuinely cheaper, with no forced transit
     consideration and no separate nearest-stop snapping step.
@@ -227,11 +230,12 @@ The feed is frequency-based (see [1.2](phase1-data-infrastructure.md) `_integrat
 headway bands (`frequencies`, stored on each transit edge). `_distinct_bands()` derives
 the set of real band boundaries directly from the data (currently 6-9/9-15/15-21) rather
 than hardcoding them, and `assign_routes()` computes this once per call, not per agent.
-For **route selection**, each transit edge's weight uses the EXPECTED wait for whichever
-band the agent departs in (mean = headway) — this is what lets Dijkstra fairly compare a
-frequent-but-slower route against an infrequent-but-faster one. Once a path is chosen,
-if it boards a matatu at all, the ACTUAL wait for that first boarding is drawn from
-`Exponential(mean=headway)` at the agent's exact departure time (not the band estimate)
+For **route selection**, each transit edge in service during the agent's band costs its
+ride time plus the EXPECTED wait `mean_wait_min`. The band's headway only decides whether
+the edge is in service: the feed's headways are a uniform placeholder schedule, so the
+wait mean is calibrated from the WRI rider survey instead (5.65 min, see
+`docs/methodology/travel-behaviour.md`). Once a path is chosen, if it boards a matatu at
+all, the ACTUAL wait for that first boarding is drawn from `Exponential(mean=mean_wait_min)`
 — plan on the expectation, experience the randomness. Only the first boarding's wait is
 charged; transfers to another route at a shared stop are free. If that drawn wait
 exceeds `wait_tolerance_min` (or the edge has no coverage at the exact time, or no band

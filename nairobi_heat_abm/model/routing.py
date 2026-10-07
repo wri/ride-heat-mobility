@@ -113,27 +113,31 @@ def _distinct_bands(G: nx.MultiDiGraph) -> list[tuple[int, int]]:
     return sorted(bands)
 
 
-def _band_edge_weight(band_mid_s: float, walk_speed_mps: float):
+def _band_edge_weight(band_mid_s: float, walk_speed_mps: float, mean_wait_s: float):
     """
     Weight-function factory for a single frequency band: a transit edge's weight is
-    its own (real GTFS) travel_time PLUS the expected wait for boarding it in this
-    band (mean = headway, matching route_transit()'s Exponential(mean=headway) model)
-    — a transit edge with no coverage for this band is excluded (infinite weight).
+    its own (real GTFS) travel_time PLUS the expected boarding wait mean_wait_s
+    (matching route_transit()'s Exponential(mean=mean_wait_s) draw) — a transit edge
+    with no coverage for this band is excluded (infinite weight). The band's headway
+    decides only WHETHER an edge is in service, not how long the wait is: the feed's
+    headways are a uniform placeholder schedule (5/15/5 min on every trip), so the
+    wait mean comes from the rider survey instead (see TravelBehaviorParams.
+    transit_mean_wait_min).
     Every other edge uses this agent's real walking pace (see _real_walk_cost), not
     the graph's own travel_time (vehicle-calibrated for ordinary street edges).
 
     band_mid_s is a representative instant used only to look up which of an edge's
-    OWN frequency bands applies (via _headway_at) — since every edge in this feed
+    OWN frequency bands applies (via _headway_at) — i.e. whether it is in service
+    then. Since every edge in this feed
     shares the same band boundaries, this reduces to an exact lookup in practice.
     """
     def weight_fn(u, v, d):
         best = float("inf")
         for attr in d.values():
             if attr.get("edge_type") == "transit":
-                headway = _headway_at(attr.get("frequencies", []), band_mid_s)
-                if headway is None:
+                if _headway_at(attr.get("frequencies", []), band_mid_s) is None:
                     continue  # no service in this band on this parallel edge
-                cost = attr.get("travel_time", 1.0) + headway
+                cost = attr.get("travel_time", 1.0) + mean_wait_s
             else:
                 cost = _real_walk_cost(attr, walk_speed_mps)
             best = min(best, cost)
@@ -155,6 +159,7 @@ def route_transit(
     destination_node: int,
     departure_tick: int,
     wait_tolerance_min: float,
+    mean_wait_min: float,
     timestep_s: float,
     bands: list[tuple[int, int]],
     rng: np.random.Generator,
@@ -166,16 +171,18 @@ def route_transit(
     edges together), weighted so that mode choice and route choice both emerge from
     real comparative time instead of being decided separately: a transit edge's
     planning weight is its own travel_time plus the EXPECTED wait for that edge's
-    frequency band (mean = headway) — see _band_edge_weight(). Dijkstra then picks
+    boarding wait (mean_wait_min) — see _band_edge_weight(). Dijkstra then picks
     whichever combination of walking and riding minimizes total planning-weight,
     including picking pure walking when that's genuinely faster; there's no separate
     nearest-stop snapping step, since the graph's own access_link edges already let
     the search reach and leave stops as part of the same path.
 
     Once a path is chosen, if it boards a matatu at all, the ACTUAL wait for that
-    FIRST boarding is drawn from Exponential(mean=headway) at the agent's real
-    departure time (not the band-representative estimate used for planning) — plan on
-    the expectation, experience the randomness. Transfers to another route at a shared
+    FIRST boarding is drawn from Exponential(mean=mean_wait_min) — plan on the
+    expectation, experience the randomness. mean_wait_min is calibrated from the WRI
+    rider survey (TravelBehaviorParams.transit_mean_wait_min), not from GTFS headway;
+    the GTFS frequency bands only decide whether a route is in service at the agent's
+    departure time. Transfers to another route at a shared
     stop are free wherever the path crosses one (only the first boarding's wait is
     charged; transfer wait time isn't modeled — a deliberate simplification, not an
     oversight). If the drawn wait exceeds wait_tolerance_min, or the boarding edge
@@ -193,7 +200,8 @@ def route_transit(
     if band is None:
         return route_walk(G, origin_node, destination_node, walk_speed_mps)
 
-    weight_fn = _band_edge_weight((band[0] + band[1]) / 2.0, walk_speed_mps)
+    mean_wait_s = mean_wait_min * 60.0
+    weight_fn = _band_edge_weight((band[0] + band[1]) / 2.0, walk_speed_mps, mean_wait_s)
     try:
         path_nodes = nx.shortest_path(G, origin_node, destination_node, weight=weight_fn)
     except (nx.NetworkXNoPath, nx.NodeNotFound):
@@ -209,11 +217,10 @@ def route_transit(
         return [tuple(e) for e in edges]  # walking alone was the cheapest option this band
 
     u, v, key, _ = edges[first_transit_idx]
-    headway_s = _headway_at(G[u][v][key].get("frequencies", []), time_of_day_s)
-    if headway_s is None:
-        return route_walk(G, origin_node, destination_node, walk_speed_mps)
+    if _headway_at(G[u][v][key].get("frequencies", []), time_of_day_s) is None:
+        return route_walk(G, origin_node, destination_node, walk_speed_mps)  # not in service right now
 
-    wait_s = float(rng.exponential(scale=headway_s))
+    wait_s = float(rng.exponential(scale=mean_wait_s))
     if wait_s > wait_tolerance_min * 60.0:
         return route_walk(G, origin_node, destination_node, walk_speed_mps)
 
@@ -290,6 +297,7 @@ def assign_routes(
                     G, origin, dest,
                     departure_tick=int(departure_ticks[i]),
                     wait_tolerance_min=params.transit_wait_tolerance_min,
+                    mean_wait_min=params.transit_mean_wait_min,
                     timestep_s=timestep_s,
                     bands=bands,
                     rng=rng,

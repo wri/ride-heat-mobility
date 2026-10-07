@@ -60,6 +60,12 @@ class TravelBehaviorParams:
     walk_speed_std_mps: float = 0.15
     transit_wait_tolerance_min: float = 15.0
     transit_wait_tolerance_std: float = 5.0
+    # Mean of the Exponential boarding-wait draw (and the expected wait used when
+    # planning routes). 5.65 min is the maximum-likelihood fit of an exponential to
+    # Q15 ("How long do you have to wait for the mode to set off?") of the WRI Nairobi
+    # rider survey (WRI_Survey_DATA_23_09_2023.xlsx), bus + matatu respondents only,
+    # N=1484 — see docs/methodology/travel-behaviour.md.
+    transit_mean_wait_min: float = 5.65
 
     # Probability an agent's single simulated trip actually happens, keyed by the
     # purpose/amenity type it would be headed to. 1.0 (default) = always travels;
@@ -74,6 +80,8 @@ class TravelBehaviorParams:
         self.purpose_weights = {k: v / total for k, v in self.purpose_weights.items()}
         if not 0.0 <= self.walk_only_share <= 1.0:
             raise ValueError("walk_only_share must be in [0, 1]")
+        if self.transit_mean_wait_min <= 0.0:
+            raise ValueError("transit_mean_wait_min must be > 0")
         for purpose, p in self.travel_probability.items():
             if not 0.0 <= p <= 1.0:
                 raise ValueError(f"travel_probability[{purpose!r}] must be in [0, 1]")
