@@ -24,6 +24,10 @@ AGE_YOUTH = 1
 AGE_ADULT = 2
 AGE_ELDERLY = 3
 
+# Nairobi school day: 08:00-15:30 (local). Only the start is used: the model simulates
+# the outbound trip from home, not the trip back.
+SCHOOL_START_HOUR = 8.0
+
 # Gender codes stored in AgentPool.gender (uint8)
 GENDER_MALE = 0
 GENDER_FEMALE = 1
@@ -63,6 +67,11 @@ class TravelBehaviorParams:
         "market": [0.40, 0.69, 0.94, 1.22, 1.19, 1.50],
         "other":  [0.23, 0.62, 1.09, 1.26, 1.22, 1.27],
     })
+    # Hard limits on when a purpose's trips may depart: purpose -> [earliest, latest)
+    # local clock hours; departure probability outside the window is zero. Applied on
+    # top of the profile and tilt. Empty = no limits. Population-wide default is empty;
+    # the child school window lives in DemographicParams.age_modifiers.
+    departure_window_h: dict[str, list[float]] = field(default_factory=dict)
 
     # Mode split (walk_transit_share = 1.0 - walk_only_share)
     walk_only_share: float = 0.55
@@ -112,6 +121,13 @@ class TravelBehaviorParams:
         for purpose, p in self.travel_probability.items():
             if not 0.0 <= p <= 1.0:
                 raise ValueError(f"travel_probability[{purpose!r}] must be in [0, 1]")
+        for purpose, window in self.departure_window_h.items():
+            _check_window(f"departure_window_h[{purpose!r}]", window)
+
+
+def _check_window(name: str, window) -> None:
+    if len(window) != 2 or not window[0] < window[1]:
+        raise ValueError(f"{name} must be [earliest, latest) hours with earliest < latest, got {window!r}")
 
 
 def params_to_json(p: TravelBehaviorParams) -> str:
@@ -153,6 +169,15 @@ class ParamModifier:
     # mean "no adjustment", same convention as purpose_weight_mult.
     travel_probability_mult: dict[str, float] = field(default_factory=dict)  # e.g. {"market": 0.5}
 
+    # Per-purpose departure window, [earliest, latest) local clock hours. Not a
+    # multiplier: combined with TravelBehaviorParams.departure_window_h and the other
+    # attributes' windows by intersection (see simulation.py::_effective_behavior).
+    departure_window_h: dict[str, list[float]] = field(default_factory=dict)  # e.g. {"school": [0.0, 8.0]}
+
+    def __post_init__(self) -> None:
+        for purpose, window in self.departure_window_h.items():
+            _check_window(f"departure_window_h[{purpose!r}]", window)
+
 
 @dataclass
 class DemographicParams:
@@ -182,8 +207,11 @@ class DemographicParams:
     informal_settlement_path: Path | None = None
 
     # Modifiers keyed by the code of the attribute value they apply to (AGE_*, GENDER_*, SES_*).
-    # Missing keys mean "no adjustment" (ParamModifier() is a no-op).
-    age_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
+    # Missing keys mean "no adjustment" (ParamModifier() is a no-op). Default: Nairobi
+    # schools start at 08:00, so children's (age <=14) school trips depart before then.
+    age_modifiers: dict[int, ParamModifier] = field(default_factory=lambda: {
+        AGE_CHILD: ParamModifier(departure_window_h={"school": [0.0, SCHOOL_START_HOUR]}),
+    })
     gender_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
     ses_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
 

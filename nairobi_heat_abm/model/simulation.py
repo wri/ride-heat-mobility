@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,6 +23,8 @@ from nairobi_heat_abm.model.agent import (
 )
 from nairobi_heat_abm.model.routing import assign_routes
 from nairobi_heat_abm.model.scheduler import tick
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -275,6 +278,21 @@ def _effective_behavior(
             travel_probability[purpose] = travel_probability.get(purpose, 1.0) * mult
     travel_probability = {k: float(np.clip(v, 0.0, 1.0)) for k, v in travel_probability.items()}
 
+    # Departure windows intersect: a trip must satisfy every window that applies to it.
+    # An empty intersection is dropped with a warning rather than raising, matching the
+    # graceful-degradation stance above.
+    departure_window_h = {k: list(v) for k, v in base.departure_window_h.items()}
+    for modifier in modifiers:
+        for purpose, (lo, hi) in modifier.departure_window_h.items():
+            if purpose in departure_window_h:
+                lo = max(lo, departure_window_h[purpose][0])
+                hi = min(hi, departure_window_h[purpose][1])
+            if lo < hi:
+                departure_window_h[purpose] = [lo, hi]
+            else:
+                logger.warning("Departure windows for %r don't overlap; ignoring them for this segment", purpose)
+                departure_window_h.pop(purpose, None)
+
     return dataclasses.replace(
         base,
         trip_rate_mean=trip_rate_mean,
@@ -290,6 +308,7 @@ def _effective_behavior(
         transit_wait_tolerance_std=transit_wait_tolerance_std,
         purpose_weights=purpose_weights,
         travel_probability=travel_probability,
+        departure_window_h=departure_window_h,
     )
 
 
@@ -367,16 +386,26 @@ def _draw_departure_ticks(
 ) -> np.ndarray:
     """
     One departure tick per agent, conditioned on its already-drawn purpose:
-    P(tick | purpose) ∝ P_profile(tick) × departure_purpose_tilt[purpose] at that tick.
+    P(tick | purpose) ∝ P_profile(tick) × departure_purpose_tilt[purpose] at that tick,
+    set to zero outside departure_window_h[purpose] if the purpose has a window.
     """
     n_ticks = int((end_hour - start_hour) * 3600 / timestep_s)
     base = _departure_profile_pmf(behavior, n_ticks, start_hour, timestep_s)
     ticks = np.empty(len(purposes), dtype=np.int32)
     for code in np.unique(purposes):
         idx = np.flatnonzero(purposes == code)
-        pmf = base * _purpose_tilt_by_tick(behavior, PURPOSE_KEYS[code], n_ticks, start_hour, timestep_s)
+        purpose = PURPOSE_KEYS[code]
+        pmf = base * _purpose_tilt_by_tick(behavior, purpose, n_ticks, start_hour, timestep_s)
+        window = behavior.departure_window_h.get(purpose)
+        if window is not None:
+            hours = start_hour + np.arange(n_ticks) * timestep_s / 3600.0
+            pmf = pmf * ((hours >= window[0]) & (hours < window[1]))
         total = pmf.sum()
-        pmf = pmf / total if total > 0 else base  # an all-zero tilt can't zero out a purpose's trips
+        if total > 0:
+            pmf = pmf / total
+        else:  # an all-zero tilt, or a window outside the simulated day, can't zero out a purpose's trips
+            logger.warning("No departure probability left for %r trips; using the unweighted profile", purpose)
+            pmf = base
         ticks[idx] = rng.choice(n_ticks, size=len(idx), p=pmf)
     return ticks
 

@@ -626,3 +626,54 @@ def test_departure_tilt_validation(kwargs):
 def test_departure_tilt_survives_json_roundtrip():
     p = TravelBehaviorParams()
     assert params_from_json(params_to_json(p)).departure_purpose_tilt == p.departure_purpose_tilt
+
+
+# --- Departure windows (children's school trips before 08:00) -----------------------
+
+def test_departure_window_confines_only_that_purpose():
+    from nairobi_heat_abm.model.simulation import _draw_departure_ticks
+
+    behavior = TravelBehaviorParams(departure_window_h={"school": [0.0, 8.0]})
+    purposes = np.array([1] * 20_000 + [0] * 20_000, dtype=np.uint8)  # school, work
+    ticks = _draw_departure_ticks(behavior, purposes, _DEP_START, _DEP_END, _DEP_DT, np.random.default_rng(3))
+    eight_am = (8 - 6) * 60
+    assert ticks[purposes == 1].max() < eight_am
+    assert (ticks[purposes == 0] >= eight_am).mean() > 0.3  # work trips still spread across the day
+
+
+def test_default_demographics_put_child_school_trips_before_8am():
+    from nairobi_heat_abm.model.agent import SCHOOL_START_HOUR
+    from nairobi_heat_abm.model.simulation import _effective_behavior
+
+    demo = DemographicParams()
+    base = TravelBehaviorParams()
+    child = _effective_behavior(base, demo, AGE_CHILD, GENDER_FEMALE, SES_FORMAL)
+    assert child.departure_window_h == {"school": [0.0, SCHOOL_START_HOUR]}
+    for age in (AGE_YOUTH, AGE_ADULT):
+        assert _effective_behavior(base, demo, age, GENDER_FEMALE, SES_FORMAL).departure_window_h == {}
+
+
+def test_departure_windows_intersect_across_base_and_modifiers(caplog):
+    from nairobi_heat_abm.model.simulation import _effective_behavior
+
+    base = TravelBehaviorParams(departure_window_h={"school": [6.5, 9.0]})
+    demo = DemographicParams(
+        age_modifiers={AGE_CHILD: ParamModifier(departure_window_h={"school": [0.0, 8.0]})},
+        gender_modifiers={GENDER_FEMALE: ParamModifier(departure_window_h={"market": [10.0, 12.0]})},
+        ses_modifiers={SES_INFORMAL: ParamModifier(departure_window_h={"market": [13.0, 14.0]})},
+    )
+    eff = _effective_behavior(base, demo, AGE_CHILD, GENDER_FEMALE, SES_FORMAL)
+    assert eff.departure_window_h == {"school": [6.5, 8.0], "market": [10.0, 12.0]}
+
+    # non-overlapping windows are dropped (with a warning), not raised
+    eff = _effective_behavior(base, demo, AGE_CHILD, GENDER_FEMALE, SES_INFORMAL)
+    assert "market" not in eff.departure_window_h
+    assert "don't overlap" in caplog.text
+
+
+@pytest.mark.parametrize("window", [[8.0, 6.0], [8.0, 8.0], [6.0]])
+def test_departure_window_validation(window):
+    with pytest.raises(ValueError):
+        TravelBehaviorParams(departure_window_h={"school": window})
+    with pytest.raises(ValueError):
+        ParamModifier(departure_window_h={"school": window})

@@ -84,6 +84,7 @@ class ParamModifier:
     trip_rate_mean_mult: float = 1.0
     trip_rate_std_mult: float = 1.0
     purpose_weight_mult: dict[str, float] = field(default_factory=dict)
+    departure_window_h: dict[str, list[float]] = field(default_factory=dict)  # [earliest, latest) h; intersected, not multiplied
 
 @dataclass
 class DemographicParams:
@@ -91,7 +92,9 @@ class DemographicParams:
     gender_shares: dict[int, float] = field(default_factory=lambda: {...})     # city-wide, not spatial
     population_raster_paths: dict[str, Path] | None = None  # spatial age/gender source; see below
     informal_settlement_path: Path | None = None  # spatial SES source; None = all SES_FORMAL
-    age_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
+    age_modifiers: dict[int, ParamModifier] = field(default_factory=lambda: {
+        AGE_CHILD: ParamModifier(departure_window_h={"school": [0.0, SCHOOL_START_HOUR]}),  # schools start 08:00
+    })
     gender_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
     ses_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
 ```

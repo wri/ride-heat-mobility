@@ -62,13 +62,26 @@ Processing:
 - Departures before 06:00 fall into the first band and after 20:00 into the last. Bands hold 180–490 respondents each.
 
 **Limitations.**
-- **Adults only.** The survey only interviewed people aged 18 and over. "School" trips here are adult students (and perhaps escorts), which is why the school tilt is nearly flat. Children's trips of any purpose are not represented, yet the model applies these tilts to child agents too.
+- **Adults only.** The survey only interviewed people aged 18 and over. "School" trips here are adult students (and perhaps escorts), which is why the school tilt is nearly flat. Children's trip timing is not represented in the survey; children's school trips get a separate rule instead (see **Children's school trips**, below).
 - **Transit riders only**, as for the wait-time calibration. Walk-only trips may be timed differently.
 - **Weekdays only.** The fieldwork ran Monday–Friday.
 - **Survey purpose is "this journey".** Respondents heading home from work may have answered "Work" instead of "Other: home", so some evening work responses may be return trips.
 - The tilt has no demographic breakdown, so there are no `ParamModifier` multipliers for it.
 
-<!-- TODO: find a source for children's trip timing by purpose (e.g. JICA 2013) -->
+<!-- TODO: find a source for children's trip timing for purposes other than school (e.g. JICA 2013) -->
+
+### Children's school trips
+
+Nairobi schools run from 08:00 to 15:30. Children's (age ≤14) school trips therefore depart before 08:00: by default, `DemographicParams.age_modifiers[AGE_CHILD]` carries `departure_window_h = {"school": [0.0, 8.0]}` (`SCHOOL_START_HOUR` in `model/agent.py`). A departure window sets the departure probability to zero outside [earliest, latest) for that purpose, on top of the profile and tilt. With the default profile this puts every child school departure between 06:00 (simulation start) and 08:00, mostly around the 07:30 peak.
+
+- The window limits **departure**, not arrival: travel time isn't known until routes are assigned, so a child leaving at 07:55 arrives after 08:00.
+- It applies only when demographics are enabled. Without `DemographicParams`, agents have no age, and school trips follow the survey tilt alone.
+- Youth (15–19), which includes most secondary-school students, has no window and follows the adult survey tilt.
+- **The trip home at 15:30 is not modeled.** The model simulates one outbound trip per agent, from home to its destination. Children walking home from school in mid-afternoon, near the hottest part of the day, are therefore missing from the exposure results. The same gap applies to every purpose's return trip.
+
+`TravelBehaviorParams.departure_window_h` sets windows for the whole population (empty by default). Windows from the base parameters and from the age, gender and SES modifiers combine by **intersection**; if they don't overlap, the window for that purpose is dropped with a logged warning.
+
+<!-- TODO: model return trips (school ends 15:30), at least for school; requires a second leg per agent in AgentPool, the scheduler, and the trip log -->
 
 ## Mode split
 
@@ -152,12 +165,13 @@ Age group, gender, and socioeconomic/informality status (see [Population model](
 
 - `purpose_weight_mult` — adjusts trip purpose weights (**Trip purpose**, above) for specific purposes; unspecified purposes are left at their base weight. Weights are renormalized after all three attributes' modifiers are applied, so only the *relative* shift matters, not the absolute multiplier.
 - `travel_probability_mult` — adjusts `travel_probability` (**Travel probability by destination type**, above) per purpose; the combined value is clipped to `[0, 1]` rather than renormalized, since it's a set of independent probabilities, not a simplex.
+- `departure_window_h` — not a multiplier: a per-purpose [earliest, latest) departure window, combined with the base and other attributes' windows by intersection (**Children's school trips**, above).
 
 `trip_rate_distribution` and `departure_profile` (string enums, not magnitudes) have no modifier — multiplying a category label isn't meaningful. `transit_mean_wait_min` has none because it describes the transit service rather than the traveller, and because route assignment (`assign_routes()`) reads only the base `TravelBehaviorParams`, so a per-segment value would never take effect.
 
 The three attributes combine **independently and multiplicatively** — e.g. a youth x female x informal-settlement agent's effective `trip_rate_mean` is `base x age_mult x gender_mult x ses_mult` — rather than each (age, gender, SES) combination having its own independently-calibrated profile. This was a deliberate simplification to keep the parameter count tractable for calibration and RDM sweeps, at the cost of not capturing genuine three-way interaction effects (e.g. if young informal-settlement women behave differently from what their individual age/gender/SES effects alone would predict).
 
-<!-- TODO: cite empirical differentials in trip rate, purpose mix, and travel probability by age/gender/SES for Nairobi (or comparable East African cities) to justify default modifier values; currently all modifier dicts default empty/no-op until populated per scenario -->
+<!-- TODO: cite empirical differentials in trip rate, purpose mix, and travel probability by age/gender/SES for Nairobi (or comparable East African cities) to justify default modifier values; all modifier dicts default empty/no-op except the children's school departure window -->
 
 ## Uncertainty ranges for RDM
 
