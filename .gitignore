@@ -26,3 +26,9 @@ notebooks/cache/
 # Background reading / local archives, not part of the project
 articles/
 nairobi-abm-plan.zip
+
+# Miscellaneous
+WRI_Survey_DATA_*.xlsx
+wong_slides_*
+*.qgz
+tile_extent.geojson
