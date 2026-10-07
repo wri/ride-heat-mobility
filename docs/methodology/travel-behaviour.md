@@ -29,6 +29,47 @@ The bimodal departure profile reflects morning and evening commute peaks observe
 
 <!-- TODO: cite empirical departure time distributions from JICA 2013 or other Nairobi surveys -->
 
+### Departure time by trip purpose
+
+The profile above sets the overall shape of departures across the day. Each trip's purpose then shifts its own timing. Every agent draws its purpose first, then its departure tick from
+
+P(tick | purpose) ∝ P_profile(tick) × tilt[purpose][band of tick]
+
+where `departure_purpose_tilt` holds one multiplier per purpose per time band, and `departure_tilt_band_edges_h` gives the band edges in local clock hours. A multiplier of 1.0 means the purpose departs in that band as often as the profile alone would predict. Outside every band, or for a purpose missing from the dict, the multiplier is 1.0, so setting `departure_purpose_tilt = {}` gives departure times that don't depend on purpose, as in earlier versions of the model. Purpose shares themselves are still set by `purpose_weights`; the tilt only moves each purpose's trips around the day. As a side effect, the overall departure profile is no longer exactly the bimodal shape: with the default weights, about 28% of all trips leave between 07:00 and 08:00, down from 32%.
+
+| Band (local) | 06–09 | 09–11 | 11–13 | 13–15 | 15–17 | 17–20 |
+|---|---|---|---|---|---|---|
+| work | 1.49 | 1.22 | 0.96 | 0.83 | 0.88 | 0.83 |
+| school | 0.85 | 1.00 | 1.10 | 1.07 | 0.97 | 0.75 |
+| market | 0.40 | 0.69 | 0.94 | 1.22 | 1.19 | 1.50 |
+| other | 0.23 | 0.62 | 1.09 | 1.26 | 1.22 | 1.27 |
+
+Resulting share of each purpose's trips by departure time, with the default profile:
+
+| Departure | No tilt | work | school | market | other |
+|---|---|---|---|---|---|
+| 06–09 | 49% | 62% | 48% | 23% | 16% |
+| 09–15 | 9% | 7% | 11% | 10% | 12% |
+| 15–20 | 42% | 31% | 41% | 67% | 73% |
+
+**Calibration.** The defaults come from the WRI Nairobi rider survey (see [Transit wait time](#calibration-from-the-wri-rider-survey) and [References](references.md)), Q9 *"What is the Purpose of this Journey?"*. The number of interviews per hour reflects when interviewers were working, not when people travel, so the survey cannot give P(hour). The purpose mix within an hour does not depend on interviewer schedules, so it does give P(purpose | hour). By Bayes' rule, P(hour | purpose) ∝ P(hour) × P(purpose | hour). The model's own profile supplies P(hour), and the survey supplies the second factor, expressed relative to the overall purpose share: tilt = P(purpose | band) / P(purpose).
+
+Processing:
+- Timestamps are taken as UTC and shifted +3 h to Nairobi time (inferred; see the wait-time limitations above).
+- Each respondent's departure from origin is estimated as interview time minus the midpoint of their reported access time (Q8: <5 → 2.5, 6–10 → 8, 11–20 → 15.5, 21–30 → 25.5, >30 → 35 min; 0 if missing).
+- Purposes map to model purposes as Work → work, School → school, Shop or Market → market, Other and healthcare → other.
+- 104 home-bound trips ("Other" with *home* in the free text) are excluded: the model simulates only the outbound trip from home.
+- Departures before 06:00 fall into the first band and after 20:00 into the last. Bands hold 180–490 respondents each.
+
+**Limitations.**
+- **Adults only.** The survey only interviewed people aged 18 and over. "School" trips here are adult students (and perhaps escorts), which is why the school tilt is nearly flat. Children's trips of any purpose are not represented, yet the model applies these tilts to child agents too.
+- **Transit riders only**, as for the wait-time calibration. Walk-only trips may be timed differently.
+- **Weekdays only.** The fieldwork ran Monday–Friday.
+- **Survey purpose is "this journey".** Respondents heading home from work may have answered "Work" instead of "Other: home", so some evening work responses may be return trips.
+- The tilt has no demographic breakdown, so there are no `ParamModifier` multipliers for it.
+
+<!-- TODO: find a source for children's trip timing by purpose (e.g. JICA 2013) -->
+
 ## Mode split
 
 | Parameter | Default | Source |

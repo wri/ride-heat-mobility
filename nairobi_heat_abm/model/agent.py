@@ -47,6 +47,23 @@ class TravelBehaviorParams:
     peak2_hour: float = 17.0
     peak2_weight: float = 0.35
 
+    # Purpose-dependent departure timing. The profile above sets the overall shape of
+    # departures across the day; each purpose's departure probability in a time band is
+    # then multiplied by departure_purpose_tilt[purpose][band] and renormalized, so
+    # P(tick | purpose) ∝ P_profile(tick) × tilt. Bands are local clock hours
+    # [edges[i], edges[i+1]); outside every band, and for any purpose missing from the
+    # dict, the multiplier is 1.0. All-1.0 (or an empty dict) = departure time
+    # independent of purpose. Defaults: P(purpose | hour) / P(purpose) from the WRI
+    # Nairobi rider survey (Sep 2026, UTC timestamps + 3 h, minus reported access time,
+    # home-bound trips excluded) — see docs/methodology/travel-behaviour.md.
+    departure_tilt_band_edges_h: list[float] = field(default_factory=lambda: [6.0, 9.0, 11.0, 13.0, 15.0, 17.0, 20.0])
+    departure_purpose_tilt: dict[str, list[float]] = field(default_factory=lambda: {
+        "work":   [1.49, 1.22, 0.96, 0.83, 0.88, 0.83],
+        "school": [0.85, 1.00, 1.10, 1.07, 0.97, 0.75],
+        "market": [0.40, 0.69, 0.94, 1.22, 1.19, 1.50],
+        "other":  [0.23, 0.62, 1.09, 1.26, 1.22, 1.27],
+    })
+
     # Mode split (walk_transit_share = 1.0 - walk_only_share)
     walk_only_share: float = 0.55
 
@@ -82,6 +99,16 @@ class TravelBehaviorParams:
             raise ValueError("walk_only_share must be in [0, 1]")
         if self.transit_mean_wait_min <= 0.0:
             raise ValueError("transit_mean_wait_min must be > 0")
+        edges = self.departure_tilt_band_edges_h
+        if len(edges) < 2 or any(b <= a for a, b in zip(edges[:-1], edges[1:])):
+            raise ValueError("departure_tilt_band_edges_h must be at least 2 strictly increasing hours")
+        for purpose, tilt in self.departure_purpose_tilt.items():
+            if len(tilt) != len(edges) - 1:
+                raise ValueError(
+                    f"departure_purpose_tilt[{purpose!r}] needs {len(edges) - 1} values (one per band), got {len(tilt)}"
+                )
+            if any(not np.isfinite(v) or v < 0.0 for v in tilt):
+                raise ValueError(f"departure_purpose_tilt[{purpose!r}] values must be finite and >= 0")
         for purpose, p in self.travel_probability.items():
             if not 0.0 <= p <= 1.0:
                 raise ValueError(f"travel_probability[{purpose!r}] must be in [0, 1]")
@@ -105,7 +132,9 @@ class ParamModifier:
     value of one demographic attribute (an age group, a gender, or an SES level).
 
     trip_rate_distribution and departure_profile (string enums on TravelBehaviorParams)
-    have no modifier here — multiplying a category label isn't meaningful."""
+    have no modifier here — multiplying a category label isn't meaningful. Neither do
+    departure_tilt_band_edges_h/departure_purpose_tilt: they are already relative
+    multipliers, and their survey calibration has no demographic breakdown."""
     trip_rate_mean_mult: float = 1.0
     trip_rate_std_mult: float = 1.0
     purpose_weight_mult: dict[str, float] = field(default_factory=dict)  # e.g. {"work": 1.3}

@@ -532,3 +532,97 @@ def test_simulation_with_spatial_demographics_draws_age_gender_from_rasters(
     assert (result.agent_age_group == AGE_ADULT).sum() > 20
     assert (result.agent_gender == GENDER_FEMALE).sum() > 20
     assert (result.agent_gender == GENDER_MALE).sum() > 20
+
+
+# --- Purpose-dependent departure times ---------------------------------------------
+
+_DEP_START, _DEP_END, _DEP_DT = 6, 20, 60.0
+_DEP_N_TICKS = int((_DEP_END - _DEP_START) * 3600 / _DEP_DT)
+
+
+def _band_shares(ticks: np.ndarray, edges_h: list[float]) -> np.ndarray:
+    hours = _DEP_START + ticks * _DEP_DT / 3600.0
+    counts = np.histogram(hours, bins=edges_h)[0]
+    return counts / counts.sum()
+
+
+def test_neutral_tilt_reproduces_original_bimodal_profile():
+    """With no purpose tilt, departures must follow the original profile: a normal
+    around each peak (30-min std), rounded to a tick and clipped to the window, plus a
+    uniform off-peak share. Compared against that original sampling algorithm."""
+    from nairobi_heat_abm.model.simulation import _draw_departure_ticks
+
+    behavior = TravelBehaviorParams(peak1_hour=6.2, departure_purpose_tilt={})  # peak near the window start
+    n = 200_000
+    rng = np.random.default_rng(0)
+    new = _draw_departure_ticks(behavior, np.zeros(n, dtype=np.uint8), _DEP_START, _DEP_END, _DEP_DT, rng)
+
+    which = rng.choice(3, size=n, p=[0.45, 0.35, 0.20])
+    std = 30.0
+    raw = np.where(which == 0, rng.normal((6.2 - 6) * 60, std, n),
+                   np.where(which == 1, rng.normal((17.0 - 6) * 60, std, n),
+                            rng.integers(0, _DEP_N_TICKS, n).astype(float)))
+    old = np.clip(np.round(raw), 0, _DEP_N_TICKS - 1).astype(np.int32)
+
+    edges = [6, 6.5, 7, 8, 12, 16.5, 17.5, 20]
+    np.testing.assert_allclose(_band_shares(new, edges), _band_shares(old, edges), atol=0.005)
+    # the clipped left tail piles onto tick 0, as in the original
+    assert abs((new == 0).mean() - (old == 0).mean()) < 0.005
+
+
+def test_departure_tilt_reweights_each_band_by_its_multiplier():
+    from nairobi_heat_abm.model.simulation import _departure_profile_pmf, _draw_departure_ticks
+
+    edges = [6.0, 10.0, 14.0, 20.0]
+    tilt = [3.0, 1.0, 0.5]
+    behavior = TravelBehaviorParams(
+        departure_profile="uniform", departure_tilt_band_edges_h=edges,
+        departure_purpose_tilt={"work": tilt},
+    )
+    base = _departure_profile_pmf(behavior, _DEP_N_TICKS, _DEP_START, _DEP_DT)
+    base_band = np.array([base[(int((a - 6) * 60)):(int((b - 6) * 60))].sum() for a, b in zip(edges[:-1], edges[1:])])
+    expected = base_band * tilt / (base_band * tilt).sum()
+
+    purposes = np.array([0] * 100_000 + [2] * 100_000, dtype=np.uint8)  # work, market (no tilt)
+    ticks = _draw_departure_ticks(behavior, purposes, _DEP_START, _DEP_END, _DEP_DT, np.random.default_rng(1))
+    np.testing.assert_allclose(_band_shares(ticks[purposes == 0], edges), expected, atol=0.01)
+    np.testing.assert_allclose(_band_shares(ticks[purposes == 2], edges), base_band, atol=0.01)
+
+
+def test_default_survey_tilt_puts_work_earlier_than_market():
+    from nairobi_heat_abm.model.simulation import _draw_departure_ticks
+
+    purposes = np.array([0] * 50_000 + [2] * 50_000, dtype=np.uint8)
+    ticks = _draw_departure_ticks(TravelBehaviorParams(), purposes, _DEP_START, _DEP_END, _DEP_DT,
+                                  np.random.default_rng(2))
+    morning = ticks < (9 - 6) * 60
+    assert morning[purposes == 0].mean() > 2 * morning[purposes == 2].mean()
+
+
+def test_tilt_by_tick_uses_local_clock_hour_and_is_neutral_outside_bands():
+    from nairobi_heat_abm.model.simulation import _purpose_tilt_by_tick
+
+    behavior = TravelBehaviorParams(departure_tilt_band_edges_h=[7.0, 9.0, 12.0],
+                                    departure_purpose_tilt={"school": [2.0, 0.5]})
+    t = _purpose_tilt_by_tick(behavior, "school", _DEP_N_TICKS, _DEP_START, _DEP_DT)
+    assert t[0] == 1.0                  # 06:00, before the first band
+    assert t[(7 - 6) * 60] == 2.0       # 07:00
+    assert t[(9 - 6) * 60 - 1] == 2.0   # 08:59
+    assert t[(9 - 6) * 60] == 0.5       # 09:00
+    assert t[(12 - 6) * 60] == 1.0      # 12:00, after the last band
+    assert (_purpose_tilt_by_tick(behavior, "work", _DEP_N_TICKS, _DEP_START, _DEP_DT) == 1.0).all()
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"departure_purpose_tilt": {"work": [1.0, 1.0]}},                       # wrong length
+    {"departure_purpose_tilt": {"work": [1.0, -1.0, 1.0, 1.0, 1.0, 1.0]}},  # negative
+    {"departure_tilt_band_edges_h": [6.0, 9.0, 9.0], "departure_purpose_tilt": {}},  # not increasing
+])
+def test_departure_tilt_validation(kwargs):
+    with pytest.raises(ValueError):
+        TravelBehaviorParams(**kwargs)
+
+
+def test_departure_tilt_survives_json_roundtrip():
+    p = TravelBehaviorParams()
+    assert params_from_json(params_to_json(p)).departure_purpose_tilt == p.departure_purpose_tilt

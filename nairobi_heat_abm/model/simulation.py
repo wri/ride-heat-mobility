@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import osmnx as ox
+from scipy.special import ndtr
 
 from nairobi_heat_abm.data.amenities import load_amenity_index
 from nairobi_heat_abm.data.demographics import (
@@ -114,11 +115,11 @@ def run(params: SimulationParams) -> ScenarioResult:
 
     if params.demographics is None:
         n_trips = _draw_trip_counts(params.behavior, params.n_agents, rng)
+        purposes = _draw_purposes(params.behavior, params.n_agents, rng)
         departure_ticks = _draw_departure_ticks(
-            params.behavior, params.n_agents, params.start_hour,
+            params.behavior, purposes, params.start_hour,
             params.end_hour, params.timestep_s, rng,
         )
-        purposes = _draw_purposes(params.behavior, params.n_agents, rng)
 
         travels = _draw_travel_gate(params.behavior, purposes, rng)
         departure_ticks[~travels] = -1  # sentinel: never matches a tick_i, agent stays inactive
@@ -144,10 +145,10 @@ def run(params: SimulationParams) -> ScenarioResult:
             effective = _effective_behavior(params.behavior, demo, age_code, gender_code, ses_code)
 
             n_trips[seg_idx] = _draw_trip_counts(effective, len(seg_idx), rng)
-            departure_ticks[seg_idx] = _draw_departure_ticks(
-                effective, len(seg_idx), params.start_hour, params.end_hour, params.timestep_s, rng,
-            )
             purposes[seg_idx] = _draw_purposes(effective, len(seg_idx), rng)
+            departure_ticks[seg_idx] = _draw_departure_ticks(
+                effective, purposes[seg_idx], params.start_hour, params.end_hour, params.timestep_s, rng,
+            )
 
             travels = _draw_travel_gate(effective, purposes[seg_idx], rng)
             seg_departure_ticks = departure_ticks[seg_idx]
@@ -300,40 +301,84 @@ def _draw_trip_counts(behavior: TravelBehaviorParams, n: int, rng: np.random.Gen
     return np.clip(counts, 1, None).astype(np.int32)
 
 
+def _departure_profile_pmf(
+    behavior: TravelBehaviorParams,
+    n_ticks: int,
+    start_hour: int,
+    timestep_s: float,
+) -> np.ndarray:
+    """
+    Probability of departing at each tick under the purpose-independent profile.
+
+    "bimodal" = two Gaussian peaks (30-min std dev) + an off-peak uniform share. Each
+    peak's mass is integrated over a tick's rounding interval [k - 0.5, k + 0.5), and
+    tails beyond the simulated window pile onto its first/last tick — the same
+    distribution as drawing a normal, rounding it, and clipping it to the window.
+    """
+    if behavior.departure_profile == "uniform":
+        return np.full(n_ticks, 1.0 / n_ticks)
+
+    p1 = behavior.peak1_weight
+    p2 = behavior.peak2_weight
+    p_off = max(0.0, 1.0 - p1 - p2)
+    std_ticks = int(0.5 * 3600 / timestep_s)  # 30-min std dev
+
+    # Rounding boundaries between ticks; the outermost are open so clipped tails land
+    # on tick 0 and tick n_ticks - 1.
+    bounds = np.arange(n_ticks + 1) - 0.5
+    bounds[0], bounds[-1] = -np.inf, np.inf
+
+    def _peak(hour: float) -> np.ndarray:
+        mu = (hour - start_hour) * 3600 / timestep_s
+        return np.diff(ndtr((bounds - mu) / std_ticks))
+
+    pmf = p1 * _peak(behavior.peak1_hour) + p2 * _peak(behavior.peak2_hour) + p_off / n_ticks
+    return pmf / pmf.sum()
+
+
+def _purpose_tilt_by_tick(
+    behavior: TravelBehaviorParams,
+    purpose: str,
+    n_ticks: int,
+    start_hour: int,
+    timestep_s: float,
+) -> np.ndarray:
+    """departure_purpose_tilt[purpose] expanded to one multiplier per tick (1.0 outside
+    every band, or when the purpose has no tilt)."""
+    tilt = behavior.departure_purpose_tilt.get(purpose)
+    if tilt is None:
+        return np.ones(n_ticks)
+    edges = np.asarray(behavior.departure_tilt_band_edges_h, dtype=float)
+    hours = start_hour + np.arange(n_ticks) * timestep_s / 3600.0
+    band = np.searchsorted(edges, hours, side="right") - 1
+    in_band = (band >= 0) & (band < len(tilt))
+    out = np.ones(n_ticks)
+    out[in_band] = np.asarray(tilt, dtype=float)[band[in_band]]
+    return out
+
+
 def _draw_departure_ticks(
     behavior: TravelBehaviorParams,
-    n: int,
+    purposes: np.ndarray,
     start_hour: int,
     end_hour: int,
     timestep_s: float,
     rng: np.random.Generator,
 ) -> np.ndarray:
+    """
+    One departure tick per agent, conditioned on its already-drawn purpose:
+    P(tick | purpose) ∝ P_profile(tick) × departure_purpose_tilt[purpose] at that tick.
+    """
     n_ticks = int((end_hour - start_hour) * 3600 / timestep_s)
-
-    if behavior.departure_profile == "uniform":
-        return rng.integers(0, n_ticks, n).astype(np.int32)
-
-    # Bimodal: two Gaussian peaks + off-peak uniform
-    p1 = behavior.peak1_weight
-    p2 = behavior.peak2_weight
-    p_off = max(0.0, 1.0 - p1 - p2)
-    which = rng.choice(3, size=n, p=[p1, p2, p_off])
-
-    std_ticks = int(0.5 * 3600 / timestep_s)  # 30-min std dev
-
-    def _hour_to_tick(h: float) -> float:
-        return (h - start_hour) * 3600 / timestep_s
-
-    raw = np.where(
-        which == 0,
-        rng.normal(_hour_to_tick(behavior.peak1_hour), std_ticks, n),
-        np.where(
-            which == 1,
-            rng.normal(_hour_to_tick(behavior.peak2_hour), std_ticks, n),
-            rng.integers(0, n_ticks, n).astype(float),
-        ),
-    )
-    return np.clip(np.round(raw), 0, n_ticks - 1).astype(np.int32)
+    base = _departure_profile_pmf(behavior, n_ticks, start_hour, timestep_s)
+    ticks = np.empty(len(purposes), dtype=np.int32)
+    for code in np.unique(purposes):
+        idx = np.flatnonzero(purposes == code)
+        pmf = base * _purpose_tilt_by_tick(behavior, PURPOSE_KEYS[code], n_ticks, start_hour, timestep_s)
+        total = pmf.sum()
+        pmf = pmf / total if total > 0 else base  # an all-zero tilt can't zero out a purpose's trips
+        ticks[idx] = rng.choice(n_ticks, size=len(idx), p=pmf)
+    return ticks
 
 
 # PURPOSE_* codes (0-3), in order, as the string keys used by purpose_weights and

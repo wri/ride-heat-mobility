@@ -26,6 +26,10 @@ class TravelBehaviorParams:
     peak1_weight: float = 0.45
     peak2_hour: float = 17.0
     peak2_weight: float = 0.35
+    # Purpose-dependent timing: P(tick | purpose) ∝ P_profile(tick) × tilt[purpose][band].
+    # Defaults fit to WRI rider survey Q9 by local hour; {} = purpose-independent.
+    departure_tilt_band_edges_h: list[float] = [6, 9, 11, 13, 15, 17, 20]
+    departure_purpose_tilt: dict[str, list[float]] = {"work": [1.49, ...], ...}
 
     # Mode split (must sum to 1.0)
     walk_only_share: float = 0.55
@@ -413,7 +417,8 @@ def run(params: SimulationParams) -> ScenarioResult:
     # Synthesise population
     spawn_nodes, spawn_rows, spawn_cols = sample_spawn_nodes(density, transform, G, params.n_agents, rng)
     n_trips = draw_trip_counts(params.behavior, params.n_agents, rng)
-    departure_ticks = draw_departure_ticks(params.behavior, n_trips, params.start_hour, rng)
+    purposes = draw_purposes(params.behavior, params.n_agents, rng)
+    departure_ticks = draw_departure_ticks(params.behavior, purposes, params.start_hour, rng)  # purpose-dependent
     dest_nodes = draw_destinations(amenities, spawn_nodes, params.behavior, rng)
     modes = draw_modes(params.behavior, params.n_agents, rng)
 
