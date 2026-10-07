@@ -12,7 +12,7 @@ This list covers all sources cited across the methodology notes. Entries marked 
 
 **Tembe, A., Nakamura, F., Tanaka, S., Arioshi, R., & Miura, S. (2019).** Travel behavior of the urban poor: A comparative study between Maputo and Nairobi. *Transportation Research Procedia, 48*, 1478–1492. https://doi.org/10.1016/j.trpro.2020.08.193 **[in articles/]**
 
-**World Resources Institute (2023).** Nairobi public transport rider survey, cleaned data (`WRI_Survey_DATA_23_09_2023.xlsx`, 2,122 respondents). Unpublished dataset. Used for the transit wait-time calibration in [Travel behaviour](travel-behaviour.md#calibration-from-the-wri-rider-survey).
+**World Resources Institute (2026).** Nairobi public transport rider survey, cleaned data (`WRI_Survey_DATA_23_09_2023.xlsx`, 2,122 respondents, interviewed 14–21 September 2026). Unpublished dataset. Used for the transit wait-time calibration in [Travel behaviour](travel-behaviour.md#calibration-from-the-wri-rider-survey).
 
 <!-- TODO: add full citation for the WRI rider survey (survey team, fieldwork dates, sampling design) -->
 <!-- TODO: add Salon & Aligula 2012 full citation once confirmed -->

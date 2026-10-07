@@ -61,7 +61,7 @@ The bimodal departure profile reflects morning and evening commute peaks observe
 
 | Parameter | Default | Source |
 |---|---|---|
-| `transit_mean_wait_min` | 5.65 min | WRI Nairobi rider survey (2023), Q15 — fit described below |
+| `transit_mean_wait_min` | 5.65 min | WRI Nairobi rider survey (2026), Q15 — fit described below |
 | `transit_wait_tolerance_min` | 15 min | <!-- TODO --> |
 | `transit_wait_tolerance_std` | 5 min | <!-- TODO --> |
 
@@ -71,7 +71,7 @@ The GTFS feed's headways are **not** used for the wait. The 2019 DigitalMatatus 
 
 ### Calibration from the WRI rider survey
 
-`WRI_Survey_DATA_23_09_2023.xlsx` (sheet `WRI_Survey_Cleaned_DATA`, 2,122 respondents interviewed at Nairobi stages) asks *"15. How long do you have to wait for the mode to set off?"*, answered in bins: Immediate, 1–5, 6–10, 10–15, 16–20, and over 20 minutes. The model only represents bus and matatu service, so the fit uses those respondents (diesel + electric bus and matatu, N = 1,484) and leaves out boda and tuk-tuk riders.
+`WRI_Survey_DATA_23_09_2023.xlsx` (sheet `WRI_Survey_Cleaned_DATA`, 2,122 respondents interviewed at Nairobi stages, almost all on weekdays 14–18 and 21 September 2026; the date in the file name does not match the survey dates) asks *"15. How long do you have to wait for the mode to set off?"*, answered in bins: Immediate, 1–5, 6–10, 10–15, 16–20, and over 20 minutes. The model only represents bus and matatu service, so the fit uses those respondents (diesel + electric bus and matatu, N = 1,484) and leaves out boda and tuk-tuk riders.
 
 Because the answers are binned, the exponential mean was fit by maximum likelihood on interval-censored data: each respondent contributes the probability that an exponential wait falls inside their bin. Bin edges were taken as [0, 1), [1, 5.5), [5.5, 10.5), [10.5, 15.5), [15.5, 20.5) and [20.5, ∞) minutes, so "Immediate" counts as under one minute.
 
@@ -87,7 +87,7 @@ Transit edges in the graph are not tagged as bus or matatu, so the model uses th
 **Limitations.**
 
 - **The exponential shape fits only roughly.** Reported waits cluster at 6–10 minutes and almost never exceed 15. The fitted exponential puts fewer riders in 6–10 minutes than were observed (329 vs. 565) and more in the long tail (16–20 min: 56 vs. 12; over 20 min: 39 vs. 2). With a 5.65-minute mean, about 7% of draws exceed 15 minutes, while about 1% of respondents reported that. The model therefore sends somewhat more agents back to walking under the default 15-minute tolerance than the survey would suggest.
-- **No time of day.** The survey records the date but not the time of each interview, so it cannot support different waits for peak and off-peak hours. The model uses one mean all day.
+- **One mean all day.** Each interview has a timestamp (`Date of Survey`). The timestamps appear to be in UTC, so Nairobi local time is the recorded time plus 3 hours. This is inferred from the data, not confirmed by the survey team: as recorded, about a quarter of interviewer shifts would start before 05:00, and trips home would peak around 13:00–14:00; shifted by +3 h, shifts run roughly 07:00–17:00 and trips home peak in the late afternoon. Fitting each GTFS time band separately (local time) gives bus + matatu means of 4.8 min for 06–09 (N = 114), 5.4 min for 09–15 (N = 952) and 6.4 min for 15–21 (N = 416). That is a modest rise through the day, nothing like the feed's 5/15/5-minute headways, so the model uses the single pooled mean. Morning-peak interviews are few, because most interviews took place between 09:00 and 15:00 local time.
 - **Riders only.** Everyone surveyed was already waiting for or riding a vehicle, so the survey describes waits experienced by transit users and says nothing about people who decided to walk instead. It cannot inform `walk_only_share`.
 - **Self-reported.** Wait times are respondents' recollections and are likely rounded toward bin boundaries.
 
