@@ -53,6 +53,26 @@ SES is binary (formal / informal) and, unlike age/gender, is **spatially derived
 
 <!-- TODO: identify and vet a real Nairobi informal-settlement boundary source — candidates to investigate include OSM/Map Kibera-style community mapping and KNBS/SDI slum enumeration data; confirm licensing and vintage before use -->
 
+### Home-area context: ward, wealth and informality
+
+For reporting only, each agent's home is also tagged with three area attributes (`data/ses.py::tag_homes`). None of them changes behaviour; they let results be broken down by where people live.
+
+| Attribute | Source | Unit | Notes |
+|---|---|---|---|
+| Ward | geoBoundaries Kenya ADM3, 2020 IEBC wards (Runfola et al. 2020), CC BY 4.0 | polygon | point-in-polygon |
+| Relative Wealth Index | Data for Good at Meta (Chi et al. 2022), CC BY-NC 4.0 | ~2.4 km tile (zoom-14 Bing quadkey) | relative within Kenya, not an absolute income; nearest tile centre |
+| Morphological informality | IDEAMAPS, Morphological Informality Modelled Dataset in Nairobi, Kenya, v2 (Hafner et al. 2026), CC BY-NC 4.0 | 100 m cell of the GHS grid | low / medium / high, see below |
+
+**Morphological informality** distinguishes planned from unplanned areas by the form of buildings and roads, as an indication of urban deprivation. The dataset's own class definitions:
+
+- **Low (0):** "Buildings are larger, detached from one another, and regularly arranged. It is easy to visualise roads, pathways, or open spaces between them. Areas with no buildings are also categorised as low."
+- **Medium (1):** "Buildings are small and close together (it can be hard to visualise roads, pathways, or spaces between them) OR buildings are irregularly arranged (with varying alignment to neighbouring structures). Roads are moderately present."
+- **High (2):** "Buildings are small and close together AND buildings are irregularly arranged (with varying alignment to neighbouring structures). Roads are hard to visualise or they are absent."
+
+The file has 110,463 cells: 58% low, 41% medium and under 1% high. It covers Nairobi's built-up core (longitude 36.61–37.04, latitude −1.42 to −1.12), so homes further east (e.g. Ruai) have no class: 261 of 10,000 agents in the notebook 01 run. The file's `focused` column marks cells chosen for validation campaigns and is not used. The method is described in the dataset's related ISPRS Archives paper (doi:10.5194/isprs-archives-XLVIII-M-7-2025-221-2025).
+
+This layer is separate from the binary SES attribute above: it is a continuous-coverage morphology classification used for reporting, not a boundary layer of informal settlements, and it doesn't set `SES_INFORMAL`.
+
 ### How demographics affect behaviour
 
 Rather than a fully independent travel-behaviour profile per (age x gender x SES) combination, each attribute value carries an optional multiplicative *modifier* (`ParamModifier`) that adjusts a base `TravelBehaviorParams` — see [Travel behaviour](travel-behaviour.md#demographic-modifiers). The three attributes' modifiers combine independently (age x gender x SES), not as a fully interactive segment table.

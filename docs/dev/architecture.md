@@ -8,7 +8,9 @@
 nairobi_heat_abm/
 ├── data/        # Static data loading (graph, population, heat, amenities)
 ├── model/       # Agent state, routing, time loop, simulation runner
-├── rdm/         # LHS sampling, parallel batch runner, outcome analysis
+├── rdm/         # LHS sampling, batch runner, outcome analysis, behavioural sensitivity
+├── calibration.py  # fit behavioural parameters to the WRI rider survey
+├── departure_fit.py  # refit the outbound departure profile for round trips
 ├── analysis/    # Exposure metrics and chart builders (post-run)
 ├── schemas/     # JSON Schema for TravelBehaviorParams
 └── app/         # Panel web application (four tabs)
@@ -17,7 +19,8 @@ nairobi_heat_abm/
 
 data/raw/        # Gitignored — OSM cache, rasters, WorldPop, GTFS
 tests/           # pytest suite, one file per phase
-config.yaml      # Bbox, time range, paths, defaults
+config.yaml      # Bbox, time range, paths, defaults, sensitivity settings
+outputs/         # Gitignored — GeoPackages, sensitivity and calibration results
 ```
 
 ## Data flow
@@ -50,6 +53,8 @@ rdm/sampling.py ──► list[SimulationParams]
 **`app/` never imports from itself into `model/` or `rdm/`.** Panel must not be imported in simulation worker processes or it will hang `ProcessPoolExecutor`. Enforce this by keeping the dependency graph strictly one-way: `app` → `rdm`/`model`/`data`, never the reverse.
 
 **All raster CRS handling goes through `data/heat.py`.** Model code calls `sample_temperature()` only; it never calls rasterio directly.
+
+**Shared inputs are loaded once per process.** `simulation.load_context()` holds the graph, `FastRouter`, amenities and rasters for any number of `run()` calls. Batch drivers (`rdm/run_sensitivity.py`, `calibration.py`) run sequentially in one process because of the graph's memory footprint (~3 GB).
 
 **The graph is read-only after build.** `data/graph.py` builds and serialises the graph. At runtime the graph is loaded once and never mutated.
 

@@ -32,3 +32,6 @@ WRI_Survey_DATA_*.xlsx
 wong_slides_*
 *.qgz
 tile_extent.geojson
+
+# Model outputs (GIS exports etc.) - regenerate from the notebook
+outputs/

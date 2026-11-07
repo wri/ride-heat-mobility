@@ -309,8 +309,9 @@ def test_heat_accumulates_correctly(tiny_graph, flat_heat_surface_30C):
     pool.route_edges = [[(u, v, 0, 0)] for _ in range(5)]
 
     tick(pool, tiny_graph, flat_heat_surface_30C, sim_tick=0, timestep_s=60.0, start_hour=6)
-    # 30 °C × 1 minute = 30 °C·min
-    assert np.all(pool.heat_exposure_degC_min[pool.active] == pytest.approx(30.0, abs=0.5))
+    # (30 - 26 °C) × 1 minute = 4 °C·min above the 26 °C threshold; raw UTCI 30 °C·min
+    assert np.all(pool.heat_exposure_degC_min[pool.active] == pytest.approx(4.0, abs=0.1))
+    assert np.all(pool.utci_degC_min[pool.active] == pytest.approx(30.0, abs=0.5))
 
 
 def test_transit_riding_excluded_from_heat_and_time_density(tiny_graph, flat_heat_surface_30C):
@@ -552,7 +553,8 @@ def test_neutral_tilt_reproduces_original_bimodal_profile():
     uniform off-peak share. Compared against that original sampling algorithm."""
     from nairobi_heat_abm.model.simulation import _draw_departure_ticks
 
-    behavior = TravelBehaviorParams(peak1_hour=6.2, departure_purpose_tilt={})  # peak near the window start
+    behavior = TravelBehaviorParams(peak1_hour=6.2, peak1_weight=0.45, peak2_hour=17.0, peak2_weight=0.35,
+                                    departure_purpose_tilt={})  # peak near the window start
     n = 200_000
     rng = np.random.default_rng(0)
     new = _draw_departure_ticks(behavior, np.zeros(n, dtype=np.uint8), _DEP_START, _DEP_END, _DEP_DT, rng)
@@ -593,8 +595,9 @@ def test_default_survey_tilt_puts_work_earlier_than_market():
     from nairobi_heat_abm.model.simulation import _draw_departure_ticks
 
     purposes = np.array([0] * 50_000 + [2] * 50_000, dtype=np.uint8)
-    ticks = _draw_departure_ticks(TravelBehaviorParams(), purposes, _DEP_START, _DEP_END, _DEP_DT,
-                                  np.random.default_rng(2))
+    # The all-journey profile used before round trips, where the tilt's effect is clearest.
+    behavior = TravelBehaviorParams(peak1_hour=7.5, peak1_weight=0.45, peak2_hour=17.0, peak2_weight=0.35)
+    ticks = _draw_departure_ticks(behavior, purposes, _DEP_START, _DEP_END, _DEP_DT, np.random.default_rng(2))
     morning = ticks < (9 - 6) * 60
     assert morning[purposes == 0].mean() > 2 * morning[purposes == 2].mean()
 

@@ -17,7 +17,7 @@ This list covers all sources cited across the methodology notes. Entries marked 
 <!-- TODO: add full citation for the WRI rider survey (survey team, fieldwork dates, sampling design) -->
 <!-- TODO: add Salon & Aligula 2012 full citation once confirmed -->
 <!-- TODO: add Salon & Gulyani 2019 full citation once confirmed -->
-<!-- TODO: add JICA 2013 household travel survey full citation -->
+**JICA (2014).** The Project on Integrated Urban Development Master Plan for the City of Nairobi in the Republic of Kenya: Final Report, Appendix 4 (demand forecast; walk split model, §A4.5.3). Nippon Koei Co., Ltd., IDCJ Inc., EJEC Inc. for the Japan International Cooperation Agency and Nairobi City County. Based on the 2013 Nairobi household person-trip survey. **[in articles/ as jica_appendix3_2012.pdf]**
 <!-- TODO: add Vanderschuren & Jennings 2017 full citation -->
 <!-- TODO: add World Bank 2024 full citation -->
 
@@ -54,3 +54,18 @@ This list covers all sources cited across the methodology notes. Entries marked 
 
 <!-- TODO: Lempert, R.J., Popper, S.W., & Bankes, S.C. (2003). Shaping the Next One Hundred Years. RAND. -->
 <!-- TODO: McKay, M.D., Beckman, R.J., & Conover, W.J. (1979). A comparison of three methods for selecting values of input variables in the analysis of output from a computer code. Technometrics, 21(2), 239–245. -->
+
+**Bröde, P., Fiala, D., Błażejczyk, K., Holmér, I., Jendritzky, G., Kampmann, B., Tinz, B., & Havenith, G. (2012).** Deriving the operational procedure for the Universal Thermal Climate Index (UTCI). *International Journal of Biometeorology*, 56(3), 481–494. (UTCI assessment scale; basis of the 26 °C exposure threshold.)
+
+**Błażejczyk, K., Jendritzky, G., Bröde, P., Fiala, D., Havenith, G., Epstein, Y., Psikuta, A., & Kampmann, B. (2013).** An introduction to the Universal Thermal Climate Index (UTCI). *Geographia Polonica*, 86(1), 5–10.
+
+---
+
+## Home-area context (wealth, informality, wards)
+
+**Hafner, S., Zhao, Q., Abascal, A., Comerio de Paulo, M., Tregonning, G., Middleton, A., Shonowo, A., Kuffer, M., Engstrom, R., Thomson, D. R., Onyambu, F. C., Kabaria, C., Elias, P., Odulana, O., Alugbin, B., Baruwa, K., & Porto de Albuquerque, J. (2026).** Morphological Informality Modelled Dataset in Nairobi, Kenya (Version v2) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.18313572. IDEAMAPS Data Ecosystem project. CC BY-NC 4.0. Method described in doi:10.5194/isprs-archives-XLVIII-M-7-2025-221-2025.
+
+**Chi, G., Fang, H., Chatterjee, S., & Blumenstock, J. E. (2022).** Microestimates of wealth for all low- and middle-income countries. *Proceedings of the National Academy of Sciences*, 119(3), e2113658119. (Relative Wealth Index; data: Data for Good at Meta, CC BY-NC 4.0.)
+
+**Runfola, D., et al. (2020).** geoBoundaries: A global database of political administrative boundaries. *PLOS ONE*, 15(4), e0231866. (Kenya ADM3 wards, CC BY 4.0.)
+

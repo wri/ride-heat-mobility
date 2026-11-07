@@ -15,6 +15,18 @@ import scipy.ndimage
 # WRI TCM tile output, e.g. "UTCI_2024_164_1500D.tif" = day 164 of 2024, 15:00 local.
 _UTCI_FILENAME_RE = re.compile(r"UTCI_(\d{4})_(\d{3})_(\d{2})(\d{2})D\.tif$")
 
+# Hour-of-day token in a single-band heat TIF name: the last "_HHMM" (optionally "D")
+# field, e.g. "UTCI_2025-03-14_0900_10m.tiff" -> 9, "UTCI_2024_164_1500D.tif" -> 15.
+_HHMM_TOKEN_RE = re.compile(r"^([01]\d|2[0-3])([0-5]\d)D?$")
+
+
+def _hour_from_filename(path: Path) -> int | None:
+    for token in reversed(path.stem.split("_")):
+        m = _HHMM_TOKEN_RE.match(token)
+        if m:
+            return int(m.group(1))
+    return None
+
 
 @dataclass
 class HeatSurface:
@@ -25,14 +37,43 @@ class HeatSurface:
     name: str               # filename stem, used for display + RDM labelling
 
 
+def _dst_grid(
+    src: rasterio.io.DatasetReader,
+    dst_crs: str,
+    bbox: tuple[float, float, float, float] | None,
+) -> tuple[rasterio.Affine, int, int]:
+    """EPSG:4326 output grid at the source's native resolution: the full source footprint,
+    or — if `bbox` (south, west, north, east) is given — just that box. Cropping happens in
+    the warp itself, so the full-extent array is never allocated."""
+    tr, w, h = rasterio.warp.calculate_default_transform(
+        src.crs, dst_crs, src.width, src.height, *src.bounds
+    )
+    if bbox is None:
+        return tr, w, h
+    # Snap the crop to whole cells of the full-footprint grid (rather than starting the grid
+    # exactly at the bbox corner) so cropped and uncropped loads have identical pixels.
+    south, west, north, east = bbox
+    col0 = max(int(np.floor((west - tr.c) / tr.a)), 0)
+    row0 = max(int(np.floor((north - tr.f) / tr.e)), 0)
+    col1 = min(int(np.ceil((east - tr.c) / tr.a)), w)
+    row1 = min(int(np.ceil((south - tr.f) / tr.e)), h)
+    if col1 <= col0 or row1 <= row0:
+        raise ValueError(f"bbox {bbox} does not overlap the heat raster ({src.name})")
+    return tr * rasterio.Affine.translation(col0, row0), col1 - col0, row1 - row0
+
+
 def load_heat_surface(
     tif_path: str | Path,
     target_hours: list[int] | None = None,
+    bbox: tuple[float, float, float, float] | None = None,
 ) -> HeatSurface:
     """
     Load a multi-band GeoTIFF heat surface. One band per hour.
-    Also accepts a directory of single-band TIFs (sorted alphabetically, indexed 0…n-1).
+    Also accepts a directory of single-band TIFs; bands are labelled by the hour in each
+    filename (e.g. "..._0900_...") if every file has one, else indexed 0…n-1.
     Reprojects to EPSG:4326 if needed. Casts to float32.
+    `bbox` = (south, west, north, east) in degrees crops the output to that box, clipped to
+    the raster's footprint; None keeps the full footprint.
     """
     tif_path = Path(tif_path)
     dst_crs = "EPSG:4326"
@@ -41,18 +82,25 @@ def load_heat_surface(
         files = sorted(tif_path.glob("*.tif")) + sorted(tif_path.glob("*.tiff"))
         if not files:
             raise FileNotFoundError(f"No .tif/.tiff files in {tif_path}")
-        all_hours = list(range(len(files)))
+        file_hours = [_hour_from_filename(f) for f in files]
+        if all(h is not None for h in file_hours):
+            # Filenames carry hour of day (e.g. UTCI_2025-03-14_0900_10m.tiff): label bands
+            # by real hour so sample_temperature picks the right one, and order by time.
+            if len(set(file_hours)) != len(file_hours):
+                raise ValueError(f"Duplicate hour-of-day across heat TIFs in {tif_path}: {file_hours}")
+            files = [f for _, f in sorted(zip(file_hours, files))]
+            all_hours = sorted(file_hours)
+        else:
+            all_hours = list(range(len(files)))
         selected = [
             (i, f) for i, f in enumerate(files)
-            if target_hours is None or i in target_hours
+            if target_hours is None or all_hours[i] in target_hours
         ]
         bands, dst_transform, crs_str = [], None, dst_crs
         for _idx, f in selected:
             with rasterio.open(f) as src:
-                tr, w, h = rasterio.warp.calculate_default_transform(
-                    src.crs, dst_crs, src.width, src.height, *src.bounds
-                )
-                band = np.empty((h, w), dtype=np.float32)
+                tr, w, h = _dst_grid(src, dst_crs, bbox)
+                band = np.full((h, w), np.nan, dtype=np.float32)
                 rasterio.warp.reproject(
                     source=rasterio.band(src, 1),
                     destination=band,
@@ -60,6 +108,7 @@ def load_heat_surface(
                     src_crs=src.crs,
                     dst_transform=tr,
                     dst_crs=dst_crs,
+                    dst_nodata=np.nan,
                     resampling=rasterio.warp.Resampling.bilinear,
                 )
                 if src.nodata is not None:
@@ -86,10 +135,8 @@ def load_heat_surface(
         ]
         hours = [i for i in all_hours if target_hours is None or i in target_hours]
 
-        dst_transform, w, h = rasterio.warp.calculate_default_transform(
-            src.crs, dst_crs, src.width, src.height, *src.bounds
-        )
-        array = np.empty((len(band_indices), h, w), dtype=np.float32)
+        dst_transform, w, h = _dst_grid(src, dst_crs, bbox)
+        array = np.full((len(band_indices), h, w), np.nan, dtype=np.float32)
         for out_i, band_i in enumerate(band_indices):
             rasterio.warp.reproject(
                 source=rasterio.band(src, band_i),
@@ -98,6 +145,7 @@ def load_heat_surface(
                 src_crs=src.crs,
                 dst_transform=dst_transform,
                 dst_crs=dst_crs,
+                dst_nodata=np.nan,
                 resampling=rasterio.warp.Resampling.bilinear,
             )
         if src.nodata is not None:

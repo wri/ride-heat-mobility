@@ -40,6 +40,25 @@ For the scientific rationale for the RDM approach see [methodology: RDM approach
 
 ### `sensitivity_analysis()` — Spearman rank correlation
 
+## 3b. Behavioural sensitivity analysis — `rdm/sensitivity.py`, `rdm/run_sensitivity.py`
+
+Morris elementary-effects screening of **behavioural** parameters only (geography and transit service fixed); method and outcomes are in [RDM approach](../methodology/rdm-approach.md#behavioural-sensitivity-morris-elementary-effects).
+
+- `BEHAVIOURAL_FACTORS`: name, label, range, baseline, source and an `apply(base, value)` that returns the `TravelBehaviorParams` fields to change. Composite factors: `departure_tilt_strength` raises every survey tilt to a power, and `work_share` sets the work purpose share while keeping the others' relative shares. 17 factors, including four that time the trip home (`work_end_hour_mean`, `school_end_hour_mean`, `market_dwell_median_min`, `other_dwell_median_min`).
+- `morris_design(k, r)`, `elementary_effects()`, `morris_indices()` (μ, μ\* with bootstrap CI, σ); `scenario_outcomes(result, home_tags)`.
+- `python -m nairobi_heat_abm.rdm.run_sensitivity` reads `config.yaml` → `sensitivity`. It loads heat, graph, router, rasters and SES layers once, runs baseline replicates and the Morris design sequentially, appends each finished run to `runs.csv`, then writes `morris_indices.csv` and `baseline_summary.csv`. The output directory is `outputs/sensitivity_roundtrip/` (round trips, 26 °C UTCI threshold); `outputs/sensitivity/` keeps the earlier one-way batch. Rerunning resumes; changing settings with the same output directory is refused. `--analyse-only` recomputes indices.
+- `notebooks/02_behavioural_sensitivity.ipynb` plots the results.
+
+Runs execute in one process rather than with `run_batch()`, because each worker would need its own ~3 GB graph.
+
+## 3c. Calibration — `calibration.py`
+
+`python -m nairobi_heat_abm.calibration` fits `destination_distance_decay` and `walk_time_weight` to the WRI rider survey's Q8 and Q11 over a parameter grid (resumable; outputs in `outputs/calibration/`). Method and result: [Travel behaviour](../methodology/travel-behaviour.md#calibration-of-β-and-the-walking-time-weight).
+
+## 3d. Outbound departure profile for round trips — `departure_fit.py`
+
+`python -m nairobi_heat_abm.departure_fit --off-peak 0.2` refits `peak1_hour`, `peak1_weight`, `peak2_hour` and `peak2_weight` so that outbound plus return departures reproduce the earlier all-journey departure distribution. It runs the model once (one-way, to get trip durations by purpose; cached in the output directory), then fits with a fast stand-in (`RoundTripSampler`) that draws departures as the model does and times trips home with `return_hours()`, a vectorised `return_departure_hour()`. Outputs in `outputs/departure_fit/` (`fit.json`, `hourly_shares.csv`). Method and result: [Travel behaviour](../methodology/travel-behaviour.md#departure-time-profile).
+
 ## 4. RDM Explorer tab
 
 See [Panel app — RDM Explorer](panel-app.md) for the UI implementation.

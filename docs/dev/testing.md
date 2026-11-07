@@ -27,6 +27,15 @@ pytest tests/ --cov=nairobi_heat_abm --cov-report=term-missing
 pytest tests/ -n auto
 ```
 
+### Test files beyond the phase gates
+
+| File | Covers |
+|---|---|
+| `test_segment_exposure_export.py` | per-segment/stop exposure accounting, GeoPackage export with embedded QGIS styles, home SES tagging |
+| `test_fast_router_sensitivity.py` | `FastRouter` vs. networkx routes, walking-time weight, shared `SimulationContext`, common random numbers, per-person segment exposure, Morris design and indices, calibration helpers, round trips (return timing rules, trips home and the exposure split, outbound unchanged by return settings, return outcomes), the departure-fit return-time helper |
+
+**Environment.** If a conda install has set `PROJ_DATA`/`GDAL_DATA`, point them at rasterio's bundled data before running pytest (`.venv/Lib/site-packages/rasterio/proj_data` and `gdal_data`), or CRS lookups fail.
+
 ## Fixture catalogue
 
 All fixtures are defined in [`tests/conftest.py`](../../tests/conftest.py).

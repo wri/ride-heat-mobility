@@ -134,6 +134,53 @@ def test_heat_surface_loads_and_interpolates(sample_tif):
     assert np.all(np.isfinite(temps))
 
 
+def test_heat_dir_labels_bands_by_hour_in_filename(tmp_path):
+    transform = rasterio.transform.from_bounds(36.649, -1.444, 37.104, -1.163, 10, 10)
+    # Written out of time order to check the loader sorts by hour, not by name/index.
+    for hhmm, temp in [("1500", 35.0), ("0900", 25.0), ("1100", 30.0)]:
+        with rasterio.open(
+            tmp_path / f"UTCI_2025-03-14_{hhmm}_10m.tiff", "w", driver="GTiff",
+            height=10, width=10, count=1, dtype="float32", crs="EPSG:4326", transform=transform,
+        ) as dst:
+            dst.write(np.full((1, 10, 10), temp, dtype=np.float32))
+
+    surface = load_heat_surface(tmp_path)
+    assert surface.hours == [9, 11, 15]
+    lons, lats = np.array([36.85]), np.array([-1.30])
+    assert sample_temperature(surface, lons, lats, hour=9)[0] == pytest.approx(25.0)
+    assert sample_temperature(surface, lons, lats, hour=16)[0] == pytest.approx(35.0)
+
+    subset = load_heat_surface(tmp_path, target_hours=[11])
+    assert subset.hours == [11]
+
+
+def test_heat_surface_bbox_crops_and_preserves_values(tmp_path):
+    # 100x100 raster over a 1°x1° box with a west->east gradient, so a wrong crop offset
+    # would show up as a wrong sampled value.
+    tif = tmp_path / "grad.tif"
+    transform = rasterio.transform.from_bounds(36.0, -2.0, 37.0, -1.0, 100, 100)
+    grad = np.tile(np.linspace(20.0, 40.0, 100, dtype=np.float32), (100, 1))
+    with rasterio.open(
+        tif, "w", driver="GTiff", height=100, width=100, count=1,
+        dtype="float32", crs="EPSG:4326", transform=transform,
+    ) as dst:
+        dst.write(grad[np.newaxis])
+
+    full = load_heat_surface(tif)
+    bbox = (-1.6, 36.2, -1.3, 36.7)  # south, west, north, east
+    cropped = load_heat_surface(tif, bbox=bbox)
+
+    assert cropped.array.shape[1] < full.array.shape[1]
+    assert cropped.array.shape[2] < full.array.shape[2]
+    assert not np.isnan(cropped.array).any()
+    lons, lats = np.array([36.3, 36.45, 36.6]), np.array([-1.5, -1.4, -1.35])
+    np.testing.assert_allclose(
+        sample_temperature(cropped, lons, lats, hour=12),
+        sample_temperature(full, lons, lats, hour=12),
+        atol=0.05,
+    )
+
+
 def test_integrate_gtfs_creates_stops_and_transit_edges(tiny_graph, small_gtfs_dir):
     G = tiny_graph.copy()
     n_nodes_before = G.number_of_nodes()

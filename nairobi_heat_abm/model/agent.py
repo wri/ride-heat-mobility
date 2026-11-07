@@ -24,9 +24,10 @@ AGE_YOUTH = 1
 AGE_ADULT = 2
 AGE_ELDERLY = 3
 
-# Nairobi school day: 08:00-15:30 (local). Only the start is used: the model simulates
-# the outbound trip from home, not the trip back.
+# Nairobi school day: 08:00-15:30 (local). The start limits children's outbound school
+# departures; the end is the default mean departure time of the trip home.
 SCHOOL_START_HOUR = 8.0
+SCHOOL_END_HOUR = 15.5
 
 # Gender codes stored in AgentPool.gender (uint8)
 GENDER_MALE = 0
@@ -46,10 +47,14 @@ class TravelBehaviorParams:
 
     # Departure time profile
     departure_profile: str = "bimodal"  # "bimodal" | "uniform" | "custom"
-    peak1_hour: float = 7.5
-    peak1_weight: float = 0.45
-    peak2_hour: float = 17.0
-    peak2_weight: float = 0.35
+    # Outbound trips only (trips home are timed by the return-trip rules below). Fitted
+    # with departure_fit.py (--off-peak 0.2) so outbound + return departures together
+    # reproduce the earlier all-journey profile (07:30/0.45, 17:00/0.35, 20% off-peak);
+    # see docs/methodology/travel-behaviour.md.
+    peak1_hour: float = 7.4
+    peak1_weight: float = 0.66
+    peak2_hour: float = 16.75
+    peak2_weight: float = 0.14
 
     # Purpose-dependent departure timing. The profile above sets the overall shape of
     # departures across the day; each purpose's departure probability in a time band is
@@ -73,13 +78,45 @@ class TravelBehaviorParams:
     # the child school window lives in DemographicParams.age_modifiers.
     departure_window_h: dict[str, list[float]] = field(default_factory=dict)
 
-    # Mode split (walk_transit_share = 1.0 - walk_only_share)
-    walk_only_share: float = 0.55
+    # Mode split. "distance" (default): an agent walks the whole way with probability
+    #   P_walk = clip((a - b * ln(d_km)) / 100 + walk_share_shift_pp / 100, 0, 1)
+    # where d_km is the trip's shortest walking-network distance and (a, b) =
+    # walk_share_curve[purpose] — the JICA (2014) Nairobi walk-split diversion curves,
+    # fitted to the 2013 household person-trip survey (articles/jica_appendix3_2012.pdf,
+    # Fig. A4.5.2: work 37.948 - 12.19 ln d, school 59.215 - 19.17 ln d, others 51.848 -
+    # 15.4 ln d; market uses "others"). Those curves are JICA's INTERzonal model; trips
+    # shorter than walk_intrazonal_max_km instead get JICA's 2013 INTRAzonal walk share
+    # (Table A4.5.2: work 67.2%, school 76.5%, others 82.7%) — 1.3 km is the mean distance
+    # between two random points in an average Nairobi small zone (~6.6 km2). Every other
+    # agent plans a route that may ride transit (and may still end up walking if that's
+    # cheaper or transit is unavailable).
+    # "fixed_share": the earlier rule — walk_only_share of agents walk, regardless of
+    # distance.
+    walk_choice: str = "distance"  # "distance" | "fixed_share"
+    walk_share_curve: dict[str, list[float]] = field(default_factory=lambda: {
+        "work": [37.948, 12.19], "school": [59.215, 19.17],
+        "market": [51.848, 15.4], "other": [51.848, 15.4],
+    })
+    walk_share_intrazonal: dict[str, float] = field(default_factory=lambda: {
+        "work": 67.2, "school": 76.5, "market": 82.7, "other": 82.7,
+    })
+    walk_intrazonal_max_km: float = 1.3
+    walk_share_shift_pp: float = 0.0  # percentage points added at every distance (sensitivity)
+    walk_only_share: float = 0.55     # used only when walk_choice == "fixed_share"
 
     # Trip purpose weights (normalised in __post_init__)
     purpose_weights: dict[str, float] = field(default_factory=lambda: {
         "work": 0.40, "school": 0.20, "market": 0.25, "other": 0.15
     })
+
+    # Destination choice: each candidate destination of the trip's purpose is weighted by
+    # distance ** -destination_distance_decay (distance floored at 25 m). Larger values
+    # favour nearer destinations (shorter trips); 1.0 = the earlier, uncalibrated rule.
+    # 1.5 matches the median time on board (22.7 min) of bus/matatu riders in the WRI
+    # rider survey (Q11), jointly with walk_time_weight and the JICA distance-based walk
+    # choice; it also gives 43% of trips walked, as in the 2013 JICA survey — see
+    # calibration.py and docs/methodology/travel-behaviour.md.
+    destination_distance_decay: float = 1.5
 
     # Movement
     walk_speed_mean_mps: float = 1.2
@@ -92,6 +129,35 @@ class TravelBehaviorParams:
     # rider survey (WRI_Survey_DATA_23_09_2023.xlsx), bus + matatu respondents only,
     # N=1484 — see docs/methodology/travel-behaviour.md.
     transit_mean_wait_min: float = 5.65
+    # How much a minute of walking counts against a minute riding when an agent who may
+    # use transit chooses its route (in-vehicle time = 1). 1.0 = pure travel-time
+    # minimisation, under which simulated riders walk past nearby stops to reach more
+    # direct routes; transit planning usually weights walking ~1.5-2.5x. Affects route
+    # choice only — the walking itself still takes length / speed. 5.0 is where the fit
+    # to the WRI rider survey's Q8 access times stops improving (median access walk
+    # 8.6 min vs 7.6 surveyed); it is high because it also stands in for boarding
+    # anywhere along a route, which the model's fixed GTFS stages don't allow.
+    walk_time_weight: float = 5.0
+
+    # Return trips. Every agent who reaches its destination heads home again, by a route
+    # planned for the time it leaves (so it can walk one way and ride the other).
+    # - work and school: leave at a clock time ~ Normal(end_hour_mean, end_hour_std),
+    #   but no sooner than min_stay_min after arriving;
+    # - market (supermarkets, marketplaces) and other (places of worship, community
+    #   centres, libraries; see data/amenities.py): stay a dwell time ~
+    #   LogNormal(median = *_dwell_median_min, log-SD = dwell_sigma_log) after arriving.
+    # A return that would leave after the simulated day ends is not simulated. One
+    # standard-normal draw per agent (rng stream "returns") drives both rules, so
+    # changing a mean or median shifts every agent's time without reshuffling them.
+    return_trips: bool = True
+    work_end_hour_mean: float = 17.0
+    work_end_hour_std: float = 1.0
+    school_end_hour_mean: float = SCHOOL_END_HOUR
+    school_end_hour_std: float = 0.5
+    min_stay_min: float = 60.0
+    market_dwell_median_min: float = 45.0
+    other_dwell_median_min: float = 60.0
+    dwell_sigma_log: float = 0.6
 
     # Probability an agent's single simulated trip actually happens, keyed by the
     # purpose/amenity type it would be headed to. 1.0 (default) = always travels;
@@ -106,8 +172,17 @@ class TravelBehaviorParams:
         self.purpose_weights = {k: v / total for k, v in self.purpose_weights.items()}
         if not 0.0 <= self.walk_only_share <= 1.0:
             raise ValueError("walk_only_share must be in [0, 1]")
+        if self.walk_choice not in ("distance", "fixed_share"):
+            raise ValueError("walk_choice must be 'distance' or 'fixed_share'")
+        for purpose, ab in self.walk_share_curve.items():
+            if len(ab) != 2 or not all(np.isfinite(ab)):
+                raise ValueError(f"walk_share_curve[{purpose!r}] must be [intercept_pct, slope_pct_per_ln_km]")
         if self.transit_mean_wait_min <= 0.0:
             raise ValueError("transit_mean_wait_min must be > 0")
+        if not np.isfinite(self.walk_time_weight) or self.walk_time_weight <= 0.0:
+            raise ValueError("walk_time_weight must be finite and > 0")
+        if not np.isfinite(self.destination_distance_decay) or self.destination_distance_decay < 0.0:
+            raise ValueError("destination_distance_decay must be finite and >= 0")
         edges = self.departure_tilt_band_edges_h
         if len(edges) < 2 or any(b <= a for a, b in zip(edges[:-1], edges[1:])):
             raise ValueError("departure_tilt_band_edges_h must be at least 2 strictly increasing hours")
@@ -123,6 +198,39 @@ class TravelBehaviorParams:
                 raise ValueError(f"travel_probability[{purpose!r}] must be in [0, 1]")
         for purpose, window in self.departure_window_h.items():
             _check_window(f"departure_window_h[{purpose!r}]", window)
+        for name in ("work_end_hour_std", "school_end_hour_std", "min_stay_min", "dwell_sigma_log"):
+            v = getattr(self, name)
+            if not np.isfinite(v) or v < 0.0:
+                raise ValueError(f"{name} must be finite and >= 0")
+        for name in ("market_dwell_median_min", "other_dwell_median_min"):
+            v = getattr(self, name)
+            if not np.isfinite(v) or v <= 0.0:
+                raise ValueError(f"{name} must be finite and > 0")
+
+
+def return_departure_hour(behavior: "TravelBehaviorParams", purpose: str, arrival_hour: float, z: float) -> float:
+    """Clock hour at which an agent that arrived at arrival_hour leaves for home; z is
+    its standard-normal draw. See the return-trip fields of TravelBehaviorParams."""
+    if purpose in ("work", "school"):
+        if purpose == "work":
+            end = behavior.work_end_hour_mean + behavior.work_end_hour_std * z
+        else:
+            end = behavior.school_end_hour_mean + behavior.school_end_hour_std * z
+        return float(max(end, arrival_hour + behavior.min_stay_min / 60.0))
+    median = behavior.market_dwell_median_min if purpose == "market" else behavior.other_dwell_median_min
+    return float(arrival_hour + median * np.exp(behavior.dwell_sigma_log * z) / 60.0)
+
+
+def walk_probability(behavior: "TravelBehaviorParams", purpose: str, distance_m: float) -> float:
+    """P(walk the whole way) for a trip of this purpose and walking-network distance
+    under walk_choice == "distance" (see TravelBehaviorParams)."""
+    d_km = distance_m / 1000.0
+    if d_km < behavior.walk_intrazonal_max_km:
+        pct = behavior.walk_share_intrazonal.get(purpose, behavior.walk_share_intrazonal.get("other", 82.7))
+    else:
+        a, b = behavior.walk_share_curve.get(purpose, behavior.walk_share_curve.get("other", [51.848, 15.4]))
+        pct = a - b * np.log(d_km)
+    return float(np.clip((pct + behavior.walk_share_shift_pp) / 100.0, 0.0, 1.0))
 
 
 def _check_window(name: str, window) -> None:
@@ -251,7 +359,13 @@ class AgentPool:
     # Exposure accumulation (°C × minutes) — OUTDOOR only: scheduler.py::tick() excludes
     # MODE_TRANSIT (in-vehicle riding) ticks, since a matatu passenger isn't exposed to
     # ambient heat the way a walking/waiting pedestrian is.
+    # Heat exposure = sum over outdoor minutes of max(UTCI - threshold, 0), threshold
+    # SimulationParams.utci_threshold_c (26 °C): °C·min of UTCI above the threshold.
     heat_exposure_degC_min: np.ndarray  # float32, shape (n,)
+    outdoor_min: np.ndarray             # float32, shape (n,) — minutes walking or waiting
+                                         #   (the time over which heat_exposure_degC_min accrues)
+    utci_degC_min: np.ndarray           # float32, shape (n,) — raw UTCI x outdoor minutes, for
+                                         #   the mean UTCI experienced (utci_degC_min / outdoor_min)
 
     # Routing
     route_edges: list[list[tuple]]  # per-agent list of (u, v, key, wait_ticks) tuples —
@@ -278,6 +392,8 @@ class AgentPool:
             gender=np.zeros(n, dtype=np.uint8),
             ses=np.zeros(n, dtype=np.uint8),
             heat_exposure_degC_min=np.zeros(n, dtype=np.float32),
+            outdoor_min=np.zeros(n, dtype=np.float32),
+            utci_degC_min=np.zeros(n, dtype=np.float32),
             route_edges=[[] for _ in range(n)],
             route_index=np.zeros(n, dtype=np.int32),
         )

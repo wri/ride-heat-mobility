@@ -25,6 +25,34 @@ paths:
     female: data/raw/nairobipop_female.tif      # any age
   gtfs_path: data/raw/GTFS_FEED_2019.zip  # DigitalMatatus feed; a directory of .txt files also works
   heat_dir: data/raw/heat/
+  # Hourly UTCI, 2025-03-14, 08:00-18:00, 10 m. Source:
+  # https://wri-cities-tcm.s3.us-east-1.amazonaws.com/city_projects/KEN-Nairobi/ctcm_gpu/output_folder/UTCI_2025-03-14_HH00_10m.tif
+  ses:  # neighbourhood / socioeconomic layers for home-location analysis (see data/ses.py)
+    wards: data/raw/ses/ken_wards_geoboundaries_adm3.geojson
+    # geoBoundaries KEN ADM3 (2020 wards), CC BY 4.0
+    # https://www.geoboundaries.org/api/current/gbOpen/KEN/ADM3/
+    rwi: data/raw/ses/ken_relative_wealth_index.csv
+    # Meta Data for Good Relative Wealth Index (~2.4 km), CC BY-NC 4.0
+    # https://data.humdata.org/dataset/relative-wealth-index
+    informality: data/raw/ses/nairobi_ideamaps_morphological_informality.csv
+    # IDEAMAPS Morphological Informality, Nairobi v2 (100 m, low/medium/high), CC BY-NC 4.0,
+    # doi:10.5281/zenodo.18313572 (model-outputs.csv)
+    # https://zenodo.org/records/18313572
+  outputs_dir: outputs/  # GIS exports (GeoPackages) written by the notebook
+
+sensitivity:
+  # Behavioural sensitivity analysis (Morris elementary effects), run with
+  #   python -m nairobi_heat_abm.rdm.run_sensitivity
+  # Factors and default ranges: nairobi_heat_abm/rdm/sensitivity.py::BEHAVIOURAL_FACTORS.
+  # Runs = baseline_replicates + trajectories x (n_factors + 1).
+  n_agents: 3000
+  trajectories: 10
+  baseline_replicates: 5
+  design_seed: 2026
+  base_seed: 1000          # trajectory t runs with seed base_seed + t
+  output_dir: outputs/sensitivity_roundtrip/   # outputs/sensitivity/ = earlier one-way-trip batch
+  ranges: {}               # optional overrides, e.g. {walk_only_share: [0.3, 0.8]}
+  # factors: [...]         # optional subset of factor names; default = all
 
 app:
   port: 5006
