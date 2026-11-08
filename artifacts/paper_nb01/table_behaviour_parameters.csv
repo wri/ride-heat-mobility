@@ -1,0 +1,18 @@
+section,parameter,value,differs_by,source
+Who travels,Home location,"Drawn in proportion to population (100 m grid), snapped to the nearest street node",—,"WorldPop 100 m population, Kenya"
+Who travels,Age group,"Child 0–14, youth 15–19, adult 20–59, elderly 60+; drawn from the age mix of the agent's home grid cell",Home location,WorldPop age-group rasters (youth = total − children − adults 20+)
+Who travels,Sex,"Drawn from the female share of the home grid cell, independently of age",Home location,WorldPop female-population raster
+Who travels,Trips per agent,One round trip: home → destination → home. Every agent travels (travel probability 1),—,Model design
+Who travels,Trip purpose,"Children 0–14: school only. Everyone else: work 40%, school 20%, market 25%, other 15%",Age: children vs. others (same for both sexes),Children: school attendance; others: assumption
+Who travels,Destination,"OpenStreetMap amenity of the trip's purpose, chosen with weight distance^−1.5^","Purpose, distance",Calibrated: WRI rider survey Q11 (median time on board 22.7 min)
+When,Outbound departure time,"Two normal peaks (SD 30 min) at 07:24 (66%) and 16:45 (14%), 20% spread evenly over 06:00–20:00",—,"Assumption, refit so outbound + return departures match an assumed all-journey profile"
+When,Departure timing by purpose,"Profile × purpose multiplier per time band, e.g. work ×1.49 at 06:00–09:00, market ×1.50 at 17:00–20:00",Purpose,"WRI rider survey Q9 (adults ≥ 18, bus/matatu riders, weekdays)"
+When,Children's school departures,Leave before 08:00 (school starts 08:00),Age: children 0–14 only,Nairobi school day 08:00–15:30
+When,Trip home: work,"Leave at 17:00 ± 1 h (normal), at least 60 min after arriving",Purpose,Assumption; Kenya public-service hours 08:00–17:00
+When,Trip home: school,"Leave at 15:30 ± 30 min (normal), at least 60 min after arriving",Purpose (all ages alike),Nairobi school day 08:00–15:30
+When,"Trip home: market, other","Stay a log-normal time, median 45 min (market), 60 min (other); log-SD 0.6",Purpose,Assumption
+How,Walk the whole way,"Probability by trip length d (km): under 1.3 km, work 67%, school 76%, market/other 83%; longer trips, work 37.9 − 12.2 ln d %, school 59.2 − 19.2 ln d %, market/other 51.8 − 15.4 ln d %","Purpose, distance","JICA (2014) Nairobi walk-split curves, 2013 household survey"
+How,Route for everyone else,Least cost: time riding + 5 × time walking + expected wait; may still be all walking,—,Calibrated: WRI rider survey Q8 (access walk time)
+How,Walking speed,"1.2 ± 0.15 m/s (normal, one draw per person)",None (same for all ages),Common pedestrian default
+How,Wait to board,"Exponential, mean 5.65 min",—,"WRI rider survey Q15 (bus and matatu riders, n = 1,484)"
+How,Wait tolerance,Walk instead if the drawn wait exceeds 15 min,—,Assumption

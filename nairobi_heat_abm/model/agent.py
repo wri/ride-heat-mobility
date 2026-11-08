@@ -315,10 +315,15 @@ class DemographicParams:
     informal_settlement_path: Path | None = None
 
     # Modifiers keyed by the code of the attribute value they apply to (AGE_*, GENDER_*, SES_*).
-    # Missing keys mean "no adjustment" (ParamModifier() is a no-op). Default: Nairobi
-    # schools start at 08:00, so children's (age <=14) school trips depart before then.
+    # Missing keys mean "no adjustment" (ParamModifier() is a no-op). Default: children
+    # (age <=14) only make school trips (the other purposes' weights are zeroed, so after
+    # renormalization P(school) = 1), and since Nairobi schools start at 08:00, they
+    # depart before then. Other age groups keep the population purpose weights.
     age_modifiers: dict[int, ParamModifier] = field(default_factory=lambda: {
-        AGE_CHILD: ParamModifier(departure_window_h={"school": [0.0, SCHOOL_START_HOUR]}),
+        AGE_CHILD: ParamModifier(
+            purpose_weight_mult={"work": 0.0, "market": 0.0, "other": 0.0},
+            departure_window_h={"school": [0.0, SCHOOL_START_HOUR]},
+        ),
     })
     gender_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
     ses_modifiers: dict[int, ParamModifier] = field(default_factory=dict)

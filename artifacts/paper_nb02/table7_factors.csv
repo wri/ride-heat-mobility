@@ -1,0 +1,18 @@
+factor,label,low,high,baseline,source
+destination_distance_decay,Destination distance decay (exponent),1.1,1.9,1.5,WRI rider survey Q11 median ride time (calibration.py)
+walk_time_weight,Walking-time weight in route choice (x riding),2.0,6.0,5.0,WRI rider survey Q8 access times (calibration.py); literature 1.5-2.5
+walk_share_shift_pp,Walk share vs. JICA distance curves (+- pct points),-15.0,15.0,0.0,JICA 2014 Nairobi walk-split curves (2013 person-trip survey)
+walk_speed_mean_mps,"Walking speed, mean (m/s)",1.0,1.4,1.2,literature default
+walk_speed_std_mps,"Walking speed, SD between people (m/s)",0.05,0.3,0.15,assumption
+transit_mean_wait_min,Mean boarding wait (min),4.5,7.0,5.65,"WRI rider survey Q15; bus 5.1, matatu 6.7, 06-09 4.8, 15-21 6.4"
+transit_wait_tolerance_min,Wait tolerance before walking instead (min),5.0,30.0,15.0,assumption
+peak1_hour,Morning outbound departure peak (hour),6.5,8.5,7.4,assumption; refit for round trips (departure_fit.py)
+peak1_weight,Share of outbound trips in morning peak,0.5,0.8,0.66,assumption; refit for round trips (departure_fit.py)
+peak2_hour,Evening outbound departure peak (hour),15.75,18.0,16.75,assumption; refit for round trips (departure_fit.py)
+peak2_weight,Share of outbound trips in evening peak,0.0,0.3,0.14,assumption; refit for round trips (departure_fit.py)
+departure_tilt_strength,Purpose-specific departure timing (x survey tilt),0.0,1.5,1.0,WRI rider survey Q9 (tilt = 1)
+work_share,Work share of trip purposes,0.25,0.55,0.4,assumption
+work_end_hour_mean,"Work end time, mean (hour)",16.0,18.5,17.0,assumption; Kenya public-service hours 08:00-17:00
+school_end_hour_mean,"School end time, mean (hour)",15.0,16.5,15.5,assumption; Nairobi school day 08:00-15:30
+market_dwell_median_min,"Shopping/market dwell time, median (min)",20.0,120.0,45.0,assumption
+other_dwell_median_min,"Other-purpose dwell time, median (min)",20.0,180.0,60.0,"assumption (places of worship, community centres, libraries)"

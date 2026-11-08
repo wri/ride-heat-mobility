@@ -1,0 +1,549 @@
+{
+ "table1": {
+  "header": [
+   "Group",
+   "n",
+   "Zero exposure (%)",
+   "Mean per person [95% CI]",
+   "Median per person",
+   "90th pct. per person"
+  ],
+  "rows": [
+   [
+    "All agents",
+    "10,000",
+    "3.6",
+    "313 [305–321]",
+    "202",
+    "700"
+   ],
+   [
+    "Walked (outbound trip)",
+    "4,514",
+    "5.0",
+    "337 [323–350]",
+    "157",
+    "934"
+   ],
+   [
+    "Rode transit (outbound trip)",
+    "5,486",
+    "2.5",
+    "293 [285–302]",
+    "225",
+    "544"
+   ],
+   [
+    "Child (0–14)",
+    "2,688",
+    "0.0",
+    "368 [352–385]",
+    "244",
+    "784"
+   ],
+   [
+    "Youth (15–19)",
+    "863",
+    "6.3",
+    "299 [272–326]",
+    "175",
+    "721"
+   ],
+   [
+    "Adult (20–59)",
+    "6,237",
+    "4.8",
+    "290 [281–300]",
+    "186",
+    "645"
+   ],
+   [
+    "Elderly (60+)",
+    "212",
+    "4.2",
+    "337 [283–395]",
+    "221",
+    "883"
+   ],
+   [
+    "Female",
+    "4,841",
+    "3.8",
+    "309 [298–321]",
+    "201",
+    "678"
+   ],
+   [
+    "Male",
+    "5,159",
+    "3.4",
+    "316 [306–327]",
+    "203",
+    "717"
+   ]
+  ],
+  "section_rows": {
+   "1": "Outbound mode",
+   "3": "Age group",
+   "7": "Gender"
+  }
+ },
+ "table_purpose": {
+  "header": [
+   "Destination type",
+   "n",
+   "Walked out (%)",
+   "Zero exposure (%)",
+   "Mean per person [95% CI]",
+   "Median per person",
+   "90th pct. per person",
+   "Mean per person, walked",
+   "Mean per person, transit"
+  ],
+  "rows": [
+   [
+    "Work",
+    "2,880",
+    "41",
+    "0.2",
+    "257 [245–270]",
+    "171",
+    "532",
+    "264",
+    "252"
+   ],
+   [
+    "School",
+    "4,138",
+    "48",
+    "0.0",
+    "372 [359–385]",
+    "249",
+    "803",
+    "375",
+    "369"
+   ],
+   [
+    "Market",
+    "1,871",
+    "45",
+    "14.3",
+    "276 [257–294]",
+    "131",
+    "720",
+    "359",
+    "207"
+   ],
+   [
+    "Other",
+    "1,111",
+    "46",
+    "7.9",
+    "300 [278–324]",
+    "198",
+    "644",
+    "319",
+    "284"
+   ]
+  ],
+  "destinations": [
+   [
+    "Work",
+    "Offices, shops, commercial and industrial buildings, banks; also schools, markets and health facilities as workplaces"
+   ],
+   [
+    "School",
+    "Schools, colleges, universities"
+   ],
+   [
+    "Market",
+    "Supermarkets and marketplaces"
+   ],
+   [
+    "Other",
+    "Places of worship, community centres, libraries"
+   ]
+  ]
+ },
+ "table2": {
+  "header": [
+   "Home area",
+   "n",
+   "Mean per person [95% CI]",
+   "Median per person",
+   "90th pct. per person",
+   "Mean per person, walked",
+   "Mean per person, transit"
+  ],
+  "rows": [
+   [
+    "Q1 (poorest)",
+    "2,027",
+    "343 [323–363]",
+    "199",
+    "773",
+    "348",
+    "339"
+   ],
+   [
+    "Q2",
+    "2,255",
+    "317 [302–332]",
+    "208",
+    "738",
+    "318",
+    "316"
+   ],
+   [
+    "Q3",
+    "1,719",
+    "321 [304–338]",
+    "226",
+    "662",
+    "371",
+    "281"
+   ],
+   [
+    "Q4",
+    "2,002",
+    "293 [276–309]",
+    "188",
+    "674",
+    "336",
+    "260"
+   ],
+   [
+    "Q5 (richest)",
+    "1,995",
+    "291 [274–307]",
+    "196",
+    "605",
+    "320",
+    "265"
+   ],
+   [
+    "Low",
+    "4,037",
+    "317 [306–330]",
+    "210",
+    "707",
+    "365",
+    "282"
+   ],
+   [
+    "Medium",
+    "4,904",
+    "297 [288–307]",
+    "201",
+    "642",
+    "325",
+    "275"
+   ],
+   [
+    "High",
+    "798",
+    "217 [198–236]",
+    "134",
+    "478",
+    "200",
+    "246"
+   ]
+  ],
+  "section_rows": {
+   "0": "Relative Wealth Index quintile",
+   "5": "Morphological informality"
+  }
+ },
+ "table3": {
+  "header": [
+   "Street",
+   "Road class",
+   "Length (m)",
+   "People",
+   "Person-min",
+   "Total °C·min",
+   "°C·min per person"
+  ],
+  "rows": [
+   [
+    "Juja Road",
+    "secondary",
+    "458",
+    "186",
+    "1,166",
+    "4,525",
+    "24.3"
+   ],
+   [
+    "Koma Rock Road",
+    "secondary",
+    "243",
+    "196",
+    "664",
+    "4,006",
+    "20.4"
+   ],
+   [
+    "Kangundo Road",
+    "trunk",
+    "442",
+    "100",
+    "614",
+    "3,861",
+    "38.6"
+   ],
+   [
+    "Thika Road",
+    "trunk",
+    "1019",
+    "39",
+    "561",
+    "3,501",
+    "89.8"
+   ],
+   [
+    "Outer Ring Road",
+    "primary",
+    "806",
+    "50",
+    "551",
+    "3,403",
+    "68.1"
+   ],
+   [
+    "Outer Ring Road",
+    "secondary",
+    "596",
+    "66",
+    "539",
+    "3,317",
+    "50.3"
+   ],
+   [
+    "Mama Ng'endo Road",
+    "unclassified",
+    "209",
+    "254",
+    "751",
+    "3,268",
+    "12.9"
+   ],
+   [
+    "Outer Ring Road",
+    "secondary",
+    "320",
+    "117",
+    "515",
+    "3,242",
+    "27.7"
+   ],
+   [
+    "Lang'ata Link Road",
+    "secondary",
+    "303",
+    "115",
+    "476",
+    "3,034",
+    "26.4"
+   ],
+   [
+    "Road to Utawala Academy",
+    "unclassified",
+    "2423",
+    "14",
+    "505",
+    "3,025",
+    "216.1"
+   ]
+  ]
+ },
+ "table4": {
+  "header": [
+   "Stop",
+   "People waiting",
+   "Person-min waiting",
+   "Total °C·min",
+   "°C·min per person"
+  ],
+  "rows": [
+   [
+    "Kangemi Terminus",
+    "73",
+    "373",
+    "4,051",
+    "55.5"
+   ],
+   [
+    "Maziwa",
+    "96",
+    "468",
+    "3,725",
+    "38.8"
+   ],
+   [
+    "Olympic Primary School",
+    "82",
+    "398",
+    "3,532",
+    "43.1"
+   ],
+   [
+    "Kenafric",
+    "84",
+    "392",
+    "3,027",
+    "36.0"
+   ],
+   [
+    "Mother Teresa Road",
+    "72",
+    "352",
+    "2,881",
+    "40.0"
+   ],
+   [
+    "Thayo",
+    "46",
+    "253",
+    "2,635",
+    "57.3"
+   ],
+   [
+    "Kwa DC",
+    "77",
+    "415",
+    "2,434",
+    "31.6"
+   ],
+   [
+    "Shell Petrol Station/Catholic Church",
+    "47",
+    "259",
+    "2,381",
+    "50.7"
+   ],
+   [
+    "Kanungaga",
+    "73",
+    "351",
+    "2,356",
+    "32.3"
+   ],
+   [
+    "Tumaini/Tassia",
+    "64",
+    "352",
+    "2,114",
+    "33.0"
+   ]
+  ]
+ },
+ "table5": {
+  "header": [
+   "Ward",
+   "Agents",
+   "Mean per resident",
+   "Median per resident",
+   "Mean RWI",
+   "Medium/high informality (%)"
+  ],
+  "rows": [
+   [
+    "Muthwani",
+    "55",
+    "1288",
+    "998",
+    "0.40",
+    "9"
+   ],
+   [
+    "Ruai",
+    "97",
+    "800",
+    "431",
+    "0.79",
+    "41"
+   ],
+   [
+    "Mwihoko",
+    "45",
+    "610",
+    "529",
+    "0.76",
+    "18"
+   ],
+   [
+    "Imara Daima",
+    "27",
+    "599",
+    "430",
+    "0.70",
+    "41"
+   ],
+   [
+    "Ndenderu",
+    "64",
+    "572",
+    "465",
+    "1.07",
+    "67"
+   ],
+   [
+    "Lindi",
+    "136",
+    "148",
+    "77",
+    "1.11",
+    "99"
+   ],
+   [
+    "Huruma",
+    "90",
+    "128",
+    "61",
+    "0.92",
+    "80"
+   ],
+   [
+    "Mlango Kubwa",
+    "51",
+    "115",
+    "48",
+    "1.31",
+    "67"
+   ],
+   [
+    "Mabatini",
+    "44",
+    "83",
+    "72",
+    "0.82",
+    "82"
+   ],
+   [
+    "Ngei",
+    "83",
+    "76",
+    "46",
+    "0.83",
+    "67"
+   ]
+  ],
+  "section_rows": {
+   "0": "Highest mean exposure",
+   "5": "Lowest mean exposure"
+  },
+  "n_wards": 115,
+  "n_wards_all": 128
+ },
+ "numbers": {
+  "n": 10000,
+  "mean": 312.9006700738414,
+  "median": 202.1110610961914,
+  "p90": 699.7974548339844,
+  "zero_pct": 3.5999999999999996,
+  "stop_share_pct": 8.066946737597158,
+  "n_segments": 54462,
+  "n_stops": 1550
+ }
+}

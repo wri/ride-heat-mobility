@@ -90,7 +90,9 @@ Processing:
 
 ### Children's school trips
 
-Nairobi schools run from 08:00 to 15:30. Children's (age ≤14) school trips therefore depart before 08:00: by default, `DemographicParams.age_modifiers[AGE_CHILD]` carries `departure_window_h = {"school": [0.0, 8.0]}` (`SCHOOL_START_HOUR` in `model/agent.py`). A departure window sets the departure probability to zero outside [earliest, latest) for that purpose, on top of the profile and tilt. With the default profile this puts every child school departure between 06:00 (simulation start) and 08:00, mostly around the 07:30 peak.
+**Children make only school trips.** By default, `DemographicParams.age_modifiers[AGE_CHILD]` sets `purpose_weight_mult = {"work": 0, "market": 0, "other": 0}`, so after renormalization every child (age ≤14) is assigned a school trip. Youth, adults and the elderly keep the population purpose weights (see [Trip purpose](#trip-purpose)); their school trips stand for secondary-school, college and university students. (Before 2026-11-07, purpose did not depend on age and about 39% of children were assigned work trips.)
+
+Nairobi schools run from 08:00 to 15:30. Children's school trips therefore depart before 08:00: the same modifier carries `departure_window_h = {"school": [0.0, 8.0]}` (`SCHOOL_START_HOUR` in `model/agent.py`). A departure window sets the departure probability to zero outside [earliest, latest) for that purpose, on top of the profile and tilt. With the default profile this puts every child school departure between 06:00 (simulation start) and 08:00, mostly around the 07:30 peak.
 
 - The window limits **departure**, not arrival: travel time isn't known until routes are assigned, so a child leaving at 07:55 arrives after 08:00.
 - It applies only when demographics are enabled. Without `DemographicParams`, agents have no age, and school trips follow the survey tilt alone.
@@ -162,6 +164,8 @@ Whether a trip is walked the whole way depends on its length and purpose. Each a
 | School | 0.20 |
 | Market | 0.25 |
 | Other | 0.15 |
+
+These weights apply to youth, adults and the elderly. Children (age ≤14) make only school trips (see [Children's school trips](#childrens-school-trips)), so when demographics are enabled the population-wide mix shifts towards school: with the WorldPop age mix of the study area (~27% children), about 42% of all agents make school trips.
 
 <!-- TODO: cite purpose distribution from JICA 2013 or other Nairobi surveys -->
 
@@ -300,7 +304,7 @@ Age group, gender, and socioeconomic/informality status (see [Population model](
 
 The three attributes combine **independently and multiplicatively** — e.g. a youth x female x informal-settlement agent's effective `trip_rate_mean` is `base x age_mult x gender_mult x ses_mult` — rather than each (age, gender, SES) combination having its own independently-calibrated profile. This was a deliberate simplification to keep the parameter count tractable for calibration and RDM sweeps, at the cost of not capturing genuine three-way interaction effects (e.g. if young informal-settlement women behave differently from what their individual age/gender/SES effects alone would predict).
 
-<!-- TODO: cite empirical differentials in trip rate, purpose mix, and travel probability by age/gender/SES for Nairobi (or comparable East African cities) to justify default modifier values; all modifier dicts default empty/no-op except the children's school departure window -->
+<!-- TODO: cite empirical differentials in trip rate, purpose mix, and travel probability by age/gender/SES for Nairobi (or comparable East African cities) to justify default modifier values; all modifier dicts default empty/no-op except children's (school-only purpose, school departure before 08:00) -->
 
 ## Uncertainty ranges for RDM
 

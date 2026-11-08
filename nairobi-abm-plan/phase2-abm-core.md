@@ -93,7 +93,10 @@ class DemographicParams:
     population_raster_paths: dict[str, Path] | None = None  # spatial age/gender source; see below
     informal_settlement_path: Path | None = None  # spatial SES source; None = all SES_FORMAL
     age_modifiers: dict[int, ParamModifier] = field(default_factory=lambda: {
-        AGE_CHILD: ParamModifier(departure_window_h={"school": [0.0, SCHOOL_START_HOUR]}),  # schools start 08:00
+        AGE_CHILD: ParamModifier(  # children only make school trips; schools start 08:00
+            purpose_weight_mult={"work": 0.0, "market": 0.0, "other": 0.0},
+            departure_window_h={"school": [0.0, SCHOOL_START_HOUR]},
+        ),
     })
     gender_modifiers: dict[int, ParamModifier] = field(default_factory=dict)
     ses_modifiers: dict[int, ParamModifier] = field(default_factory=dict)

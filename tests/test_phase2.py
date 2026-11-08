@@ -656,6 +656,21 @@ def test_default_demographics_put_child_school_trips_before_8am():
         assert _effective_behavior(base, demo, age, GENDER_FEMALE, SES_FORMAL).departure_window_h == {}
 
 
+def test_default_demographics_give_children_only_school_trips():
+    from nairobi_heat_abm.model.simulation import PURPOSE_KEYS, _draw_purposes, _effective_behavior
+
+    demo = DemographicParams()
+    base = TravelBehaviorParams()
+    child = _effective_behavior(base, demo, AGE_CHILD, GENDER_MALE, SES_FORMAL)
+    assert child.purpose_weights == pytest.approx({"work": 0.0, "school": 1.0, "market": 0.0, "other": 0.0})
+    drawn = _draw_purposes(child, 500, np.random.default_rng(0))
+    assert set(np.asarray(PURPOSE_KEYS)[drawn]) == {"school"}
+    # Everyone else keeps the population weights.
+    for age in (AGE_YOUTH, AGE_ADULT):
+        eff = _effective_behavior(base, demo, age, GENDER_MALE, SES_FORMAL)
+        assert eff.purpose_weights == pytest.approx(base.purpose_weights)
+
+
 def test_departure_windows_intersect_across_base_and_modifiers(caplog):
     from nairobi_heat_abm.model.simulation import _effective_behavior
 

@@ -1,0 +1,429 @@
+{
+ "table7": {
+  "header": [
+   "Factor",
+   "Range",
+   "Baseline",
+   "Source of baseline / range"
+  ],
+  "rows": [
+   [
+    "Destination distance decay (exponent)",
+    "1.1–1.9",
+    "1.5",
+    "WRI rider survey Q11 median ride time (calibration.py)"
+   ],
+   [
+    "Walking-time weight in route choice (x riding)",
+    "2–6×",
+    "5×",
+    "WRI rider survey Q8 access times (calibration.py); literature 1.5-2.5"
+   ],
+   [
+    "Walk share vs. JICA distance curves (+- pct points)",
+    "-15–15 pp",
+    "0 pp",
+    "JICA 2014 Nairobi walk-split curves (2013 person-trip survey)"
+   ],
+   [
+    "Walking speed, mean (m/s)",
+    "1–1.4 m/s",
+    "1.2 m/s",
+    "literature default"
+   ],
+   [
+    "Walking speed, SD between people (m/s)",
+    "0.05–0.3 m/s",
+    "0.15 m/s",
+    "assumption"
+   ],
+   [
+    "Mean boarding wait (min)",
+    "4.5–7 min",
+    "5.65 min",
+    "WRI rider survey Q15; bus 5.1, matatu 6.7, 06-09 4.8, 15-21 6.4"
+   ],
+   [
+    "Wait tolerance before walking instead (min)",
+    "5–30 min",
+    "15 min",
+    "assumption"
+   ],
+   [
+    "Morning outbound departure peak (hour)",
+    "6.5–8.5 h",
+    "7.4 h",
+    "assumption; refit for round trips (departure_fit.py)"
+   ],
+   [
+    "Share of outbound trips in morning peak",
+    "0.5–0.8",
+    "0.66",
+    "assumption; refit for round trips (departure_fit.py)"
+   ],
+   [
+    "Evening outbound departure peak (hour)",
+    "15.75–18 h",
+    "16.75 h",
+    "assumption; refit for round trips (departure_fit.py)"
+   ],
+   [
+    "Share of outbound trips in evening peak",
+    "0–0.3",
+    "0.14",
+    "assumption; refit for round trips (departure_fit.py)"
+   ],
+   [
+    "Purpose-specific departure timing (x survey tilt)",
+    "0–1.5×",
+    "1×",
+    "WRI rider survey Q9 (tilt = 1)"
+   ],
+   [
+    "Work share of trip purposes",
+    "0.25–0.55",
+    "0.4",
+    "assumption"
+   ],
+   [
+    "Work end time, mean (hour)",
+    "16–18.5 h",
+    "17 h",
+    "assumption; Kenya public-service hours 08:00-17:00"
+   ],
+   [
+    "School end time, mean (hour)",
+    "15–16.5 h",
+    "15.5 h",
+    "assumption; Nairobi school day 08:00-15:30"
+   ],
+   [
+    "Shopping/market dwell time, median (min)",
+    "20–120 min",
+    "45 min",
+    "assumption"
+   ],
+   [
+    "Other-purpose dwell time, median (min)",
+    "20–180 min",
+    "60 min",
+    "assumption (places of worship, community centres, libraries)"
+   ]
+  ],
+  "section_rows": {
+   "0": "Destination and route choice",
+   "3": "Walking",
+   "5": "Waiting for transit",
+   "7": "Outbound departure time",
+   "12": "Trip purpose and the trip home"
+  }
+ },
+ "table8": {
+  "header": [
+   "Outcome",
+   "Mean",
+   "SD",
+   "CV"
+  ],
+  "rows": [
+   [
+    "Mean exposure (°C·min)",
+    "311",
+    "6",
+    "1.9%"
+   ],
+   [
+    "Median exposure (°C·min)",
+    "197",
+    "3",
+    "1.3%"
+   ],
+   [
+    "90th-percentile exposure (°C·min)",
+    "689",
+    "13",
+    "1.8%"
+   ],
+   [
+    "Minutes outdoors",
+    "65.5",
+    "0.9",
+    "1.3%"
+   ],
+   [
+    "Mean UTCI while outdoors (°C)",
+    "29.14",
+    "0.07",
+    "0.2%"
+   ],
+   [
+    "Share of trips using transit",
+    "0.549",
+    "0.009",
+    "1.7%"
+   ],
+   [
+    "Mean exposure, walk-only trips (°C·min)",
+    "334",
+    "12",
+    "3.7%"
+   ],
+   [
+    "Mean exposure, transit trips (°C·min)",
+    "292",
+    "5",
+    "1.7%"
+   ],
+   [
+    "Share of exposure on the trip home",
+    "0.734",
+    "0.014",
+    "1.9%"
+   ],
+   [
+    "Share home by 20:00",
+    "0.913",
+    "0.005",
+    "0.5%"
+   ],
+   [
+    "Wealth gap, poorest − richest RWI quintile (°C·min)",
+    "64",
+    "34",
+    "53.0%"
+   ],
+   [
+    "Informality gap, medium/high − low (°C·min)",
+    "-28",
+    "14",
+    "51.0%"
+   ]
+  ]
+ },
+ "table9": {
+  "header": [
+   "Rank",
+   "Factor",
+   "Dir.",
+   "μ* (95% CI)",
+   "μ",
+   "σ",
+   "μ* minutes outdoors",
+   "μ* UTCI (°C)"
+  ],
+  "rows": [
+   [
+    1,
+    "Wait tolerance before walking instead (min)",
+    "↓",
+    "163 (71–289)",
+    "-163",
+    "181",
+    "32.4",
+    "0.39"
+   ],
+   [
+    2,
+    "Destination distance decay (exponent)",
+    "↓",
+    "133 (79–201)",
+    "-133",
+    "105",
+    "27.2",
+    "0.18"
+   ],
+   [
+    3,
+    "Walk share vs. JICA distance curves (+- pct points)",
+    "↑",
+    "103 (85–123)",
+    "103",
+    "33",
+    "21.4",
+    "0.27"
+   ],
+   [
+    4,
+    "Walking speed, mean (m/s)",
+    "↓",
+    "87 (66–109)",
+    "-87",
+    "37",
+    "18.5",
+    "0.13"
+   ],
+   [
+    5,
+    "Mean boarding wait (min)",
+    "↑",
+    "71 (45–103)",
+    "71",
+    "49",
+    "15.5",
+    "0.11"
+   ],
+   [
+    6,
+    "Walking-time weight in route choice (x riding)",
+    "↓",
+    "58 (38–76)",
+    "-58",
+    "34",
+    "12.7",
+    "0.04"
+   ],
+   [
+    7,
+    "Work end time, mean (hour)",
+    "↓",
+    "54 (34–76)",
+    "-54",
+    "37",
+    "3.0",
+    "0.56"
+   ],
+   [
+    8,
+    "Morning outbound departure peak (hour)",
+    "↑",
+    "44 (28–62)",
+    "44",
+    "31",
+    "0.3",
+    "1.03"
+   ],
+   [
+    9,
+    "Share of outbound trips in evening peak",
+    "↓",
+    "42 (23–65)",
+    "-39",
+    "41",
+    "4.8",
+    "0.26"
+   ],
+   [
+    10,
+    "Evening outbound departure peak (hour)",
+    "↓",
+    "34 (13–62)",
+    "-34",
+    "41",
+    "2.6",
+    "0.38"
+   ],
+   [
+    11,
+    "Work share of trip purposes",
+    "↓",
+    "30 (21–41)",
+    "-26",
+    "25",
+    "1.9",
+    "0.40"
+   ],
+   [
+    12,
+    "School end time, mean (hour)",
+    "↓",
+    "29 (22–39)",
+    "-29",
+    "15",
+    "0.5",
+    "0.38"
+   ],
+   [
+    13,
+    "Walking speed, SD between people (m/s)",
+    "↑",
+    "22 (10–35)",
+    "22",
+    "21",
+    "4.0",
+    "0.05"
+   ],
+   [
+    14,
+    "Purpose-specific departure timing (x survey tilt)",
+    "↕",
+    "21 (16–26)",
+    "15",
+    "19",
+    "3.3",
+    "0.66"
+   ],
+   [
+    15,
+    "Share of outbound trips in morning peak",
+    "↓",
+    "17 (13–21)",
+    "-14",
+    "12",
+    "3.3",
+    "0.64"
+   ],
+   [
+    16,
+    "Other-purpose dwell time, median (min)",
+    "↕",
+    "7 (6–9)",
+    "3",
+    "8",
+    "1.2",
+    "0.16"
+   ],
+   [
+    17,
+    "Shopping/market dwell time, median (min)",
+    "↕",
+    "6 (4–8)",
+    "3",
+    "6",
+    "1.2",
+    "0.15"
+   ]
+  ]
+ },
+ "numbers": {
+  "n_agents": 3000,
+  "trajectories": 10,
+  "n_factors": 17,
+  "n_runs": 185,
+  "n_morris": 180,
+  "n_baseline": 5,
+  "base_mean": 310.90439208609297,
+  "base_sd": 5.779639518811652,
+  "base_outdoor": 65.4818862786288,
+  "base_return_share": 73.4270198952302,
+  "range_min": 161.0612393600177,
+  "range_max": 860.1417138810158,
+  "top": [
+   [
+    "Wait tolerance",
+    162.64872865417766
+   ],
+   [
+    "Destination distance decay",
+    133.21115784780628
+   ],
+   [
+    "Walk-share shift",
+    103.46941164847412
+   ],
+   [
+    "Mean walking speed",
+    86.74178388415571
+   ],
+   [
+    "Mean boarding wait",
+    70.99753835544843
+   ]
+  ],
+  "wait_tol_5": 560.8303116574755,
+  "wait_tol_5_out": 119.24634714783899,
+  "wait_tol_n5": 41,
+  "wait_tol_ge13_lo": 282.1250153616417,
+  "wait_tol_ge13_hi": 311.7611720067926,
+  "n_above_noise": 15
+ }
+}
