@@ -81,9 +81,9 @@
    ],
    [
     "Walk the whole way",
-    "Probability by trip length d (km): under 1.3 km, work 67%, school 76%, market/other 83%; longer trips, work 37.9 − 12.2 ln d %, school 59.2 − 19.2 ln d %, market/other 51.8 − 15.4 ln d %",
+    "Probability by trip length d (km): under 1.3 km, work 67%, school 76%, market/other 83%; longer trips, work 37.9 − 12.2 ln d %, school 59.2 − 19.2 ln d %, market/other 51.8 − 15.4 ln d %; none beyond 15 km",
     "Purpose, distance",
-    "JICA (2014) Nairobi walk-split curves, 2013 household survey"
+    "JICA (2014) Nairobi walk-split curves, 2013 household survey; cap: last distance with walk trips in JICA's data"
    ],
    [
     "Route for everyone else",
@@ -105,7 +105,7 @@
    ],
    [
     "Wait tolerance",
-    "Walk instead if the drawn wait exceeds 15 min",
+    "If the drawn wait exceeds 15 min, walk instead when walking is no slower than waiting and riding; otherwise wait",
     "—",
     "Assumption"
    ]

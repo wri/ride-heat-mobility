@@ -110,8 +110,9 @@ rows = [
      f"school {intra['school']:.0f}%, market/other {intra['other']:.0f}%; longer trips, "
      f"work {curve['work'][0]:.1f} − {curve['work'][1]:.1f} ln d %, "
      f"school {curve['school'][0]:.1f} − {curve['school'][1]:.1f} ln d %, "
-     f"market/other {curve['other'][0]:.1f} − {curve['other'][1]:.1f} ln d %",
-     "Purpose, distance", "JICA (2014) Nairobi walk-split curves, 2013 household survey"),
+     f"market/other {curve['other'][0]:.1f} − {curve['other'][1]:.1f} ln d %; none beyond {b.walk_max_km:g} km",
+     "Purpose, distance", "JICA (2014) Nairobi walk-split curves, 2013 household survey; cap: last distance with "
+     "walk trips in JICA's data"),
     ("How", "Route for everyone else",
      f"Least cost: time riding + {b.walk_time_weight:g} × time walking + expected wait; may still be "
      "all walking",
@@ -123,7 +124,8 @@ rows = [
      f"Exponential, mean {b.transit_mean_wait_min:g} min",
      NONE, "WRI rider survey Q15 (bus and matatu riders, n = 1,484)"),
     ("How", "Wait tolerance",
-     f"Walk instead if the drawn wait exceeds {b.transit_wait_tolerance_min:g} min",
+     f"If the drawn wait exceeds {b.transit_wait_tolerance_min:g} min, walk instead when walking is no slower "
+     "than waiting and riding; otherwise wait",
      NONE, "Assumption"),
 ]
 sections = {}

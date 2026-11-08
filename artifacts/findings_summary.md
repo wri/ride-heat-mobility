@@ -2,8 +2,8 @@
 
 Agent-based model of pedestrian heat exposure, notebooks 01 (main results) and 02 (behavioural sensitivity).
 Figures and tables: `paper_nb01/` and `paper_nb02/`; assembled in `paper_nb01/heat_exposure_main_results.docx`.
-Updated 2026-11-08: children (0–14) now make only school trips; main results rerun with 20,000 agents. Main
-and sensitivity results below are both from runs with this rule.
+Updated 2026-11-08: children (0–14) make only school trips; main results rerun with 20,000 agents and the two
+routing fixes below. **The sensitivity results are from the batch before those fixes and are out of date.**
 
 ## Model in brief
 
@@ -23,45 +23,52 @@ and sensitivity results below are both from runs with this rule.
 
 ## Main results (notebook 01: 20,000 agents, seed 42)
 
+*Rerun 2026-11-08 with two routing fixes: an agent whose drawn wait exceeds its tolerance now walks only if
+walking is no slower than waiting and riding (before, it walked however far, up to ~40 km), and nobody walks the
+whole way beyond 15 km (the JICA curves were extrapolating past the survey's data). Mean exposure fell from 309 to
+269 °C·min, almost all of it in the tail (median 199 → 194; 99th percentile 1,954 → 1,519).*
+
 **Overall**
-- Mean daily exposure is **309 °C·min per person** (95% CI 304–314); median 199; 90th percentile 693.
+- Mean daily exposure is **269 °C·min per person** (95% CI 265–273); median 194; 90th percentile 570.
 - 3.6% of agents have zero exposure (all their outdoor minutes were at UTCI ≤ 26 °C).
-- Walking accounts for 92% of all exposure; waiting at transit stops for 8%.
-- Most exposure is picked up on the trip home, which falls in the afternoon heat (73% in the 3,000-agent
-  baseline replicates of the sensitivity batch).
+- Walking accounts for 88% of all exposure; waiting at transit stops for 12% (more riders now wait rather
+  than walk).
+- Most exposure is picked up on the trip home, which falls in the afternoon heat (about three-quarters in a
+  5,000-agent check with the fixes).
 
 **By mode of the outbound trip**
-- People who walked out have higher mean exposure (323) than transit riders (297), and a much longer tail
-  (90th percentile 869 vs 561). Their median is lower (153 vs 224): many walks are short, but long walks are
-  very exposed.
+- People who walked out and transit riders now have similar means (275 vs 264), but walkers' exposure is far
+  more spread out: median 136 vs 223, 90th percentile 751 vs 502. Many walks are short; long walks are very
+  exposed.
 
 **By trip purpose**
-- School trips are the most exposed (mean 365; nobody at zero), then other purposes (309), market (268) and work
-  (254).
-- Market trips show the largest gap by mode: walkers 325 vs transit riders 224.
+- School trips are the most exposed (mean 319; nobody at zero), then other purposes (269), market (228) and work
+  (223).
+- Market trips show the largest gap by mode: walkers 271 vs transit riders 199.
 
 **By person**
-- **Children are the most exposed group**: mean 361 (95% CI 351–372), median 244, and none at zero, against 287
-  for adults (20–59) and 295 for youth (15–19). Every child makes a school trip, the most exposed purpose, and
-  heads home around 15:30. The elderly are also high (325), but the group is small (n = 422) and the interval
-  wide (288–365).
-- Sex makes little difference: women 315, men 304.
+- **Children are the most exposed group**: mean 312 (95% CI 304–319), median 241, and none at zero, against 252
+  for adults (20–59) and 252 for youth (15–19). Every child makes a school trip, the most exposed purpose, and
+  heads home around 15:30. The elderly are also high (284), but the group is small (n = 422) and the interval
+  wide (254–316).
+- Sex makes little difference: women 271, men 267.
 
 **By wealth and informality of the home**
-- Poorer areas are more exposed: mean 351 in the poorest Relative Wealth Index quintile vs 282 in the richest
-  (24% higher), though small next to individual variation (0.18 SD; rank correlation −0.06). The poorest
-  quintile has more very high days (16% vs 10% above 600 °C·min).
-- Informality runs the other way: low-informality homes 319, medium 294, high **215**. High-informality
+- Poorer areas are more exposed: mean 305 in the poorest Relative Wealth Index quintile vs 245 in the richest
+  (24% higher; CIs do not overlap), though small next to individual variation (0.20 SD; rank correlation −0.06).
+  The poorest quintile has more very high days (12% vs 7% above 600 °C·min).
+- Informality runs the other way: low-informality homes 277, medium 256, high **196**. High-informality
   settlements are dense and central, so trips are short; the most exposed people live on the periphery.
 
 **Where**
-- Ward means range from ~100 to 1,200 °C·min per resident. The highest are peripheral (Oloosirkon/Sholinke 1,204
-  and Kinanie 1,096, both with fewer than 25 simulated residents; Muthwani 1,016, Ruai 755, Mwihoko 690); the
-  lowest are dense inner wards (Mabatini 103, Ngei 110, Sarangombe 122, Mlango Kubwa 128).
-- The most-exposing street segments are on major roads used by many walkers: Outer Ring Road, Juja Road, Koma
-  Rock Road, Kangundo Road, Mombasa Road, Jogoo Road. Per walker, trunk roads are the worst (Thika Road 89,
-  Mombasa Road 70 °C·min per segment among the top ten).
-- The stops with the most waiting exposure include Olympic Primary School, Kangemi Terminus, Maziwa and Kenafric.
+- Ward means range from ~100 to 1,200 °C·min per resident. The highest are peripheral (Oloosirkon/Sholinke 1,172
+  and Kinanie 921, both with fewer than 25 simulated residents; Muthwani 916, Ruai 602, Imara Daima 595); the
+  lowest are dense inner wards (Mabatini 103, Ngei 105, Sarangombe 118, Mlango Kubwa 120, Huruma 123).
+- The most-exposing street segments are on roads used by many walkers in the east: Kangundo Road, Outer Ring
+  Road, the Korogocho–Dandora bridge, Macharia Road, Juja Road. Per walker, long peripheral roads are the worst
+  (Thika Road 200, Road to Utawala Academy 176 °C·min per segment).
+- The stops with the most waiting exposure are Olympic Primary School, Kangemi Terminus, Maziwa, Kenafric and
+  Kwa DC.
 
 ## Behavioural sensitivity (notebook 02: Morris elementary effects)
 

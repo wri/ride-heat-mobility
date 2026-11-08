@@ -11,8 +11,8 @@ When,Children's school departures,Leave before 08:00 (school starts 08:00),Age: 
 When,Trip home: work,"Leave at 17:00 ± 1 h (normal), at least 60 min after arriving",Purpose,Assumption; Kenya public-service hours 08:00–17:00
 When,Trip home: school,"Leave at 15:30 ± 30 min (normal), at least 60 min after arriving",Purpose (all ages alike),Nairobi school day 08:00–15:30
 When,"Trip home: market, other","Stay a log-normal time, median 45 min (market), 60 min (other); log-SD 0.6",Purpose,Assumption
-How,Walk the whole way,"Probability by trip length d (km): under 1.3 km, work 67%, school 76%, market/other 83%; longer trips, work 37.9 − 12.2 ln d %, school 59.2 − 19.2 ln d %, market/other 51.8 − 15.4 ln d %","Purpose, distance","JICA (2014) Nairobi walk-split curves, 2013 household survey"
+How,Walk the whole way,"Probability by trip length d (km): under 1.3 km, work 67%, school 76%, market/other 83%; longer trips, work 37.9 − 12.2 ln d %, school 59.2 − 19.2 ln d %, market/other 51.8 − 15.4 ln d %; none beyond 15 km","Purpose, distance","JICA (2014) Nairobi walk-split curves, 2013 household survey; cap: last distance with walk trips in JICA's data"
 How,Route for everyone else,Least cost: time riding + 5 × time walking + expected wait; may still be all walking,—,Calibrated: WRI rider survey Q8 (access walk time)
 How,Walking speed,"1.2 ± 0.15 m/s (normal, one draw per person)",None (same for all ages),Common pedestrian default
 How,Wait to board,"Exponential, mean 5.65 min",—,"WRI rider survey Q15 (bus and matatu riders, n = 1,484)"
-How,Wait tolerance,Walk instead if the drawn wait exceeds 15 min,—,Assumption
+How,Wait tolerance,"If the drawn wait exceeds 15 min, walk instead when walking is no slower than waiting and riding; otherwise wait",—,Assumption

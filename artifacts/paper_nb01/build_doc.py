@@ -37,9 +37,16 @@ FIGS = [  # (file stem, width, caption)
      "(b) Exposure of one person walking the segment (total divided by the number of distinct people), shown for "
      "segments walked by at least 5 people. Both directions of a street are combined. Light grey: segments walked "
      "but with no exposure above the threshold, and ward boundaries. Log colour scales. Place labels mark selected wards (CBD: Nairobi Central ward; Kibera: Laini Saba and Sarangombe wards; Dandora and Eastleigh: their wards combined)."),
-    ("fig3_ward_map", "3.5in",
-     "**Figure 3.** Mean daily exposure per resident, by home ward. Wards with fewer than 15 simulated residents "
-     "are hatched. The map is clipped to the study area. Place labels mark selected wards (CBD: Nairobi Central ward; Kibera: Laini Saba and Sarangombe wards; Dandora and Eastleigh: their wards combined)."),
+    ("fig3_ward_map", "6.5in",
+     "**Figure 3.** (a) Mean daily exposure per resident, by home ward; wards with fewer than 15 simulated residents "
+     "are hatched. (b) Morphological informality of each 100 m cell, the layer used to group agents by home "
+     "informality in Figure 4b and Table 5; hatched: outside the layer's coverage. The least-exposed wards in (a) "
+     "are the dense central ones where (b) shows medium and high informality. Both maps are clipped to the study "
+     "area. Place labels mark selected wards (CBD: Nairobi Central ward; Kibera: Laini Saba and Sarangombe wards; "
+     "Dandora and Eastleigh: their wards combined). Panel (b) is adapted from the IDEAMAPS Morphological "
+     "Informality Modelled Dataset in Nairobi, Kenya, v2 (Hafner et al. 2026; doi:10.5281/zenodo.18313572), "
+     "licensed under CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/); changes: reprojected and "
+     "clipped to the study area."),
     ("fig4_wealth_informality", "6.5in",
      "**Figure 4.** Mean daily exposure per person by (a) the Relative Wealth Index quintile and (b) the morphological "
      "informality of the agent's home location, for all agents and by outbound mode. Bars: 95% bootstrap "
