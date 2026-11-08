@@ -1,5 +1,5 @@
 """
-Reconstruct each agent's trip purpose for the notebook 01 run (seed 42, 10,000 agents),
+Reconstruct each agent's trip purpose for the notebook 01 run (seed 42),
 which the GeoPackage doesn't store.
 
 model.simulation.run() draws purposes from their own random stream ("purposes"), one

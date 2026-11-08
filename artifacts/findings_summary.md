@@ -2,8 +2,8 @@
 
 Agent-based model of pedestrian heat exposure, notebooks 01 (main results) and 02 (behavioural sensitivity).
 Figures and tables: `paper_nb01/` and `paper_nb02/`; assembled in `paper_nb01/heat_exposure_main_results.docx`.
-Updated 2026-11-08: children (0–14) now make only school trips. Main results and sensitivity results below are
-both from runs with this rule.
+Updated 2026-11-08: children (0–14) now make only school trips; main results rerun with 20,000 agents. Main
+and sensitivity results below are both from runs with this rule.
 
 ## Model in brief
 
@@ -21,45 +21,47 @@ both from runs with this rule.
   agent's position exceeds 26 °C (the lower bound of "moderate heat stress"), in °C·min. Riding inside a vehicle
   adds nothing. UTCI: 10 m hourly rasters for 14 March 2025.
 
-## Main results (notebook 01: 10,000 agents, seed 42)
+## Main results (notebook 01: 20,000 agents, seed 42)
 
 **Overall**
-- Mean daily exposure is **313 °C·min per person** (95% CI 306–321); median 202; 90th percentile 700.
+- Mean daily exposure is **309 °C·min per person** (95% CI 304–314); median 199; 90th percentile 693.
 - 3.6% of agents have zero exposure (all their outdoor minutes were at UTCI ≤ 26 °C).
 - Walking accounts for 92% of all exposure; waiting at transit stops for 8%.
-- Most exposure is picked up on the trip home, which falls in the afternoon heat (about two-thirds in an earlier
-  3,000-agent check).
+- Most exposure is picked up on the trip home, which falls in the afternoon heat (73% in the 3,000-agent
+  baseline replicates of the sensitivity batch).
 
 **By mode of the outbound trip**
-- People who walked out have higher mean exposure (337) than transit riders (293), and a much longer tail
-  (90th percentile 934 vs 544). Their median is lower (157 vs 225): many walks are short, but long walks are
+- People who walked out have higher mean exposure (323) than transit riders (297), and a much longer tail
+  (90th percentile 869 vs 561). Their median is lower (153 vs 224): many walks are short, but long walks are
   very exposed.
 
 **By trip purpose**
-- School trips are the most exposed (mean 372; nobody at zero), then other purposes (300), market (276) and work
-  (257).
-- Market trips show the largest gap by mode: walkers 359 vs transit riders 207.
+- School trips are the most exposed (mean 365; nobody at zero), then other purposes (309), market (268) and work
+  (254).
+- Market trips show the largest gap by mode: walkers 325 vs transit riders 224.
 
 **By person**
-- **Children are the most exposed group**: mean 368 (95% CI 352–385), median 244, and none at zero, against 290
-  for adults (20–59) and 299 for youth (15–19). Every child now makes a school trip, the most exposed purpose,
-  and heads home around 15:30. The elderly are also high (337), but the group is small (n = 212) and the interval wide
-  (283–395).
-- Sex makes little difference: women 309, men 316.
+- **Children are the most exposed group**: mean 361 (95% CI 351–372), median 244, and none at zero, against 287
+  for adults (20–59) and 295 for youth (15–19). Every child makes a school trip, the most exposed purpose, and
+  heads home around 15:30. The elderly are also high (325), but the group is small (n = 422) and the interval
+  wide (288–365).
+- Sex makes little difference: women 315, men 304.
 
 **By wealth and informality of the home**
-- Poorer areas are more exposed: mean 343 in the poorest Relative Wealth Index quintile vs 291 in the richest.
-- Informality runs the other way: low-informality homes 317, medium 298, high **217**. High-informality
+- Poorer areas are more exposed: mean 351 in the poorest Relative Wealth Index quintile vs 282 in the richest
+  (24% higher), though small next to individual variation (0.18 SD; rank correlation −0.06). The poorest
+  quintile has more very high days (16% vs 10% above 600 °C·min).
+- Informality runs the other way: low-informality homes 319, medium 294, high **215**. High-informality
   settlements are dense and central, so trips are short; the most exposed people live on the periphery.
 
 **Where**
-- Ward means range from ~75 to 1,300 °C·min per resident. The highest are peripheral (Muthwani 1,288, Ruai 800,
-  Mwihoko 610, Imara Daima 599); the lowest are dense inner wards (Ngei 76, Mabatini 83, Mlango Kubwa 115,
-  Huruma 128).
-- The most-exposing street segments are on major roads used by many walkers: Juja Road, Koma Rock Road, Kangundo
-  Road, Thika Road, Outer Ring Road, Lang'ata Link Road. Per walker, trunk and primary roads are the worst (Thika
-  Road 90, Outer Ring Road 68 °C·min per segment).
-- The stops with the most waiting exposure include Kangemi Terminus, Maziwa, Olympic Primary School and Kenafric.
+- Ward means range from ~100 to 1,200 °C·min per resident. The highest are peripheral (Oloosirkon/Sholinke 1,204
+  and Kinanie 1,096, both with fewer than 25 simulated residents; Muthwani 1,016, Ruai 755, Mwihoko 690); the
+  lowest are dense inner wards (Mabatini 103, Ngei 110, Sarangombe 122, Mlango Kubwa 128).
+- The most-exposing street segments are on major roads used by many walkers: Outer Ring Road, Juja Road, Koma
+  Rock Road, Kangundo Road, Mombasa Road, Jogoo Road. Per walker, trunk roads are the worst (Thika Road 89,
+  Mombasa Road 70 °C·min per segment among the top ten).
+- The stops with the most waiting exposure include Olympic Primary School, Kangemi Terminus, Maziwa and Kenafric.
 
 ## Behavioural sensitivity (notebook 02: Morris elementary effects)
 

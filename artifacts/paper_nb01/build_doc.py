@@ -30,7 +30,7 @@ FIGS = [  # (file stem, width, caption)
      "**Figure 1.** Distribution of daily heat exposure per person, by the mode of the outbound trip. "
      "Exposure is the sum over outdoor minutes (walking and waiting at stops) of the degrees by which UTCI exceeds "
      "26 °C, over the outbound trip and the trip home. Dashed lines: medians. Bins of 25 °C·min; the last bin "
-     "includes all values ≥ 1,475 °C·min. n = 10,000 agents."),
+     f"includes all values ≥ 1,475 °C·min. n = {N['n']:,} agents."),
     ("fig2_segment_maps", "6.5in",
      "**Figure 2.** Where exposure is picked up on the street network. (a) Total exposure accumulated on each "
      f"street segment by everyone who walked it ({N['n_segments']:,} segments with non-zero exposure). "
@@ -63,7 +63,7 @@ TABLES = [
      "Note. Relative Wealth Index (Chi et al. 2022; Data for Good at Meta, ~2.4 km tiles): quintiles over all agents. "
      "Morphological informality (IDEAMAPS; Hafner et al. 2026): class of the home's 100 m grid cell, from the form "
      "of buildings and roads (low: large, detached, regularly arranged buildings; high: small, close-together, "
-     "irregularly arranged buildings with roads hard to see or absent). The layer covers Nairobi's built-up core; 261 agents outside the informality layer are "
+     f"irregularly arranged buildings with roads hard to see or absent). The layer covers Nairobi's built-up core; {N['n_no_informality']} agents outside the informality layer are "
      "excluded from the informality rows (and from Figure 4b)."),
     ("table3", "**Table 6.** The ten street segments with the most total exposure.",
      "Note. A segment is the stretch of street between two network nodes, both directions combined. "
@@ -118,7 +118,7 @@ md = [
     "",
     "## Model run",
     "",
-    "10,000 agents on one simulated weekday, 06:00–20:00, in 60-second steps (random seed 42). Each agent lives at a "
+    f"{N['n']:,} agents on one simulated weekday, 06:00–20:00, in 60-second steps (random seed 42). Each agent lives at a "
     "location drawn from WorldPop population density and makes a round trip: out from home to a destination chosen "
     "by trip purpose (work, school, market, other), a stay at the destination, and back. Each trip is walked the "
     "whole way or ridden by matatu or bus, by distance-based walk shares (JICA 2014) and a route choice calibrated "

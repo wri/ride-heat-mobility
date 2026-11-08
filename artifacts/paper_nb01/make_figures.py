@@ -1,14 +1,14 @@
 """
-Paper figures and tables for the main results (notebook 01 run: 10,000 agents, seed 42,
+Paper figures and tables for the main results (notebook 01 run: N_AGENTS agents, seed 42,
 round trips, exposure = °C·min of UTCI above 26 °C).
 
-Reads the GeoPackage written by notebook 01 (outputs/heat_exposure_heat_10000agents_seed42.gpkg)
+Reads the GeoPackage written by notebook 01 (outputs/heat_exposure_heat_<N_AGENTS>agents_seed42.gpkg)
 and writes, next to this script:
   fig*.svg / fig*.png   figures (SVG with vector text; map layers embedded as 300 dpi raster)
   table*.csv            table data
   tables.json           formatted tables for build_doc.py
 
-Population: all 10,000 agents. Every agent travels in the baseline (travel probability 1),
+Population: all agents. Every agent travels in the baseline (travel probability 1),
 so this is the traveller population; agents whose outdoor minutes were all at UTCI <= 26 °C
 have zero exposure and are included as zeros.
 
@@ -32,7 +32,8 @@ from purposes import reconstruct_purposes  # same folder
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-GPKG = ROOT / "outputs" / "heat_exposure_heat_10000agents_seed42.gpkg"
+from run_config import N_AGENTS  # noqa: E402
+GPKG = ROOT / "outputs" / f"heat_exposure_heat_{N_AGENTS}agents_seed42.gpkg"
 BBOX = (36.649, -1.444, 37.104, -1.163)  # west, south, east, north (config.yaml)
 CRS_M = "EPSG:32737"                      # UTM 37S, metres
 MIN_WARD_AGENTS = 15
@@ -246,6 +247,7 @@ tables["numbers"] = {
     "n": int(len(exp)), "mean": float(exp.mean()), "median": float(np.median(exp)),
     "p90": float(np.percentile(exp, 90)), "zero_pct": float((exp == 0).mean() * 100),
     "stop_share_pct": float(stops["heat_degC_min"].sum() / (segments["heat_degC_min"].sum() + stops["heat_degC_min"].sum()) * 100),
+    "n_no_informality": int(agents["informality"].isna().sum()),
     "n_segments": int((segments["heat_degC_min"] > 0).sum()), "n_stops": int((stops["heat_degC_min"] > 0).sum()),
 }
 

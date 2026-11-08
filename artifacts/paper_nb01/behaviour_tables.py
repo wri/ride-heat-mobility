@@ -1,5 +1,5 @@
 """
-Tables of agent behaviour as modelled in notebook 01 (10,000 agents, seed 42, default
+Tables of agent behaviour as modelled in notebook 01 (N_AGENTS agents, seed 42, default
 TravelBehaviorParams and DemographicParams with the WorldPop age/sex rasters):
 
   table_behaviour   every behavioural rule and parameter, which agent attributes it depends
@@ -28,7 +28,8 @@ from purposes import reconstruct_purposes  # same folder
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-GPKG = ROOT / "outputs" / "heat_exposure_heat_10000agents_seed42.gpkg"
+from run_config import N_AGENTS  # noqa: E402
+GPKG = ROOT / "outputs" / f"heat_exposure_heat_{N_AGENTS}agents_seed42.gpkg"
 
 b = TravelBehaviorParams()
 d = DemographicParams()

@@ -5,9 +5,9 @@ subtitle: "Figures and tables from the agent-based model (notebook 01; behaviour
 
 ## Model run
 
-10,000 agents on one simulated weekday, 06:00–20:00, in 60-second steps (random seed 42). Each agent lives at a location drawn from WorldPop population density and makes a round trip: out from home to a destination chosen by trip purpose (work, school, market, other), a stay at the destination, and back. Each trip is walked the whole way or ridden by matatu or bus, by distance-based walk shares (JICA 2014) and a route choice calibrated to the WRI Nairobi rider survey (2023). Heat exposure is the sum, over every minute spent outdoors (walking or waiting at a stop), of the degrees by which the Universal Thermal Climate Index (UTCI) at the agent's position exceeds 26 °C, the lower bound of UTCI's moderate heat stress category; minutes riding inside a vehicle add nothing. UTCI comes from 10 m hourly rasters for 14 March 2025.
+20,000 agents on one simulated weekday, 06:00–20:00, in 60-second steps (random seed 42). Each agent lives at a location drawn from WorldPop population density and makes a round trip: out from home to a destination chosen by trip purpose (work, school, market, other), a stay at the destination, and back. Each trip is walked the whole way or ridden by matatu or bus, by distance-based walk shares (JICA 2014) and a route choice calibrated to the WRI Nairobi rider survey (2023). Heat exposure is the sum, over every minute spent outdoors (walking or waiting at a stop), of the degrees by which the Universal Thermal Climate Index (UTCI) at the agent's position exceeds 26 °C, the lower bound of UTCI's moderate heat stress category; minutes riding inside a vehicle add nothing. UTCI comes from 10 m hourly rasters for 14 March 2025.
 
-Across all agents, mean daily exposure is 313 °C·min (median 202; 90th percentile 700). 3.6% of agents have zero exposure: all their outdoor minutes were at UTCI of 26 °C or below.
+Across all agents, mean daily exposure is 309 °C·min (median 199; 90th percentile 693). 3.6% of agents have zero exposure: all their outdoor minutes were at UTCI of 26 °C or below.
 
 ## Model parameters
 
@@ -42,25 +42,25 @@ Note. Differs by: the agent attributes a rule depends on; — = the same for eve
 
 | Group | n | % of agents | Work (%) | School (%) | Market (%) | Other (%) |
 |:---|---:|---:|---:|---:|---:|---:|
-| All agents | 10,000 | 100.0 | 29 | 41 | 19 | 11 |
+| All agents | 20,000 | 100.0 | 29 | 42 | 19 | 11 |
 | *Age group* | | | | | | |
-| Child (0–14) | 2,688 | 26.9 | 0 | 100 | 0 | 0 |
-| Youth (15–19) | 863 | 8.6 | 39 | 19 | 29 | 13 |
-| Adult (20–59) | 6,237 | 62.4 | 40 | 20 | 25 | 16 |
-| Elderly (60+) | 212 | 2.1 | 36 | 25 | 27 | 12 |
+| Child (0–14) | 5,424 | 27.1 | 0 | 100 | 0 | 0 |
+| Youth (15–19) | 1,759 | 8.8 | 40 | 20 | 25 | 15 |
+| Adult (20–59) | 12,395 | 62.0 | 40 | 20 | 26 | 15 |
+| Elderly (60+) | 422 | 2.1 | 42 | 20 | 25 | 13 |
 | *Sex* | | | | | | |
-| Female | 4,841 | 48.4 | 29 | 41 | 19 | 11 |
-| Male | 5,159 | 51.6 | 29 | 41 | 19 | 11 |
+| Female | 9,663 | 48.3 | 30 | 41 | 18 | 11 |
+| Male | 10,337 | 51.7 | 28 | 42 | 19 | 11 |
 
 Table: **Table 2.** Simulated population by age group and sex, and its trip purposes (% of each group).
 
-Note. Age group and sex come from the WorldPop rasters at each agent's home; youth (15–19) is the residual of total minus children and adults 20+. Children make only school trips; agents over 14 share the population purpose weights, so their school trips stand for secondary-school, college and university students. Overall, 41% of agents make school trips. Purposes are not stored in the model's GIS export; they were reproduced exactly from the run's random seed (see purposes.py).
+Note. Age group and sex come from the WorldPop rasters at each agent's home; youth (15–19) is the residual of total minus children and adults 20+. Children make only school trips; agents over 14 share the population purpose weights, so their school trips stand for secondary-school, college and university students. Overall, 42% of agents make school trips. Purposes are not stored in the model's GIS export; they were reproduced exactly from the run's random seed (see purposes.py).
 
 ## Figures
 
-![**Figure 1.** Distribution of daily heat exposure per person, by the mode of the outbound trip. Exposure is the sum over outdoor minutes (walking and waiting at stops) of the degrees by which UTCI exceeds 26 °C, over the outbound trip and the trip home. Dashed lines: medians. Bins of 25 °C·min; the last bin includes all values ≥ 1,475 °C·min. n = 10,000 agents.](fig1_exposure_distribution.svg){width=3.5in}
+![**Figure 1.** Distribution of daily heat exposure per person, by the mode of the outbound trip. Exposure is the sum over outdoor minutes (walking and waiting at stops) of the degrees by which UTCI exceeds 26 °C, over the outbound trip and the trip home. Dashed lines: medians. Bins of 25 °C·min; the last bin includes all values ≥ 1,475 °C·min. n = 20,000 agents.](fig1_exposure_distribution.svg){width=3.5in}
 
-![**Figure 2.** Where exposure is picked up on the street network. (a) Total exposure accumulated on each street segment by everyone who walked it (54,462 segments with non-zero exposure). (b) Exposure of one person walking the segment (total divided by the number of distinct people), shown for segments walked by at least 5 people. Both directions of a street are combined. Light grey: segments walked but with no exposure above the threshold, and ward boundaries. Log colour scales. Place labels mark selected wards (CBD: Nairobi Central ward; Kibera: Laini Saba and Sarangombe wards; Dandora and Eastleigh: their wards combined).](fig2_segment_maps.svg){width=6.5in}
+![**Figure 2.** Where exposure is picked up on the street network. (a) Total exposure accumulated on each street segment by everyone who walked it (66,353 segments with non-zero exposure). (b) Exposure of one person walking the segment (total divided by the number of distinct people), shown for segments walked by at least 5 people. Both directions of a street are combined. Light grey: segments walked but with no exposure above the threshold, and ward boundaries. Log colour scales. Place labels mark selected wards (CBD: Nairobi Central ward; Kibera: Laini Saba and Sarangombe wards; Dandora and Eastleigh: their wards combined).](fig2_segment_maps.svg){width=6.5in}
 
 ![**Figure 3.** Mean daily exposure per resident, by home ward. Wards with fewer than 15 simulated residents are hatched. The map is clipped to the study area. Place labels mark selected wards (CBD: Nairobi Central ward; Kibera: Laini Saba and Sarangombe wards; Dandora and Eastleigh: their wards combined).](fig3_ward_map.svg){width=3.5in}
 
@@ -70,18 +70,18 @@ Note. Age group and sex come from the WorldPop rasters at each agent's home; you
 
 | Group | n | Zero exposure (%) | Mean per person [95% CI] | Median per person | 90th pct. per person |
 |:---|---:|---:|---:|---:|---:|
-| All agents | 10,000 | 3.6 | 313 [305–321] | 202 | 700 |
+| All agents | 20,000 | 3.6 | 309 [304–314] | 199 | 693 |
 | *Outbound mode* | | | | | |
-| Walked (outbound trip) | 4,514 | 5.0 | 337 [323–350] | 157 | 934 |
-| Rode transit (outbound trip) | 5,486 | 2.5 | 293 [285–302] | 225 | 544 |
+| Walked (outbound trip) | 9,108 | 4.6 | 322 [313–332] | 153 | 869 |
+| Rode transit (outbound trip) | 10,892 | 2.6 | 297 [292–304] | 224 | 561 |
 | *Age group* | | | | | |
-| Child (0–14) | 2,688 | 0.0 | 368 [352–385] | 244 | 784 |
-| Youth (15–19) | 863 | 6.3 | 299 [272–326] | 175 | 721 |
-| Adult (20–59) | 6,237 | 4.8 | 290 [281–300] | 186 | 645 |
-| Elderly (60+) | 212 | 4.2 | 337 [283–395] | 221 | 883 |
+| Child (0–14) | 5,424 | 0.0 | 361 [351–372] | 244 | 779 |
+| Youth (15–19) | 1,759 | 5.7 | 295 [276–314] | 173 | 695 |
+| Adult (20–59) | 12,395 | 4.8 | 287 [281–294] | 180 | 653 |
+| Elderly (60+) | 422 | 2.4 | 325 [288–365] | 205 | 686 |
 | *Gender* | | | | | |
-| Female | 4,841 | 3.8 | 309 [298–321] | 201 | 678 |
-| Male | 5,159 | 3.4 | 316 [306–327] | 203 | 717 |
+| Female | 9,663 | 3.6 | 314 [306–323] | 200 | 706 |
+| Male | 10,337 | 3.6 | 304 [296–311] | 198 | 681 |
 
 Table: **Table 3.** Daily heat exposure per person (°C·min above 26 °C UTCI), overall and by group.
 
@@ -89,10 +89,10 @@ Note. Outbound mode is the mode of the trip from home; the trip home can differ 
 
 | Destination type | n | Walked out (%) | Zero exposure (%) | Mean per person [95% CI] | Median per person | 90th pct. per person | Mean per person, walked | Mean per person, transit |
 |:---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Work | 2,880 | 41 | 0.2 | 257 [245–270] | 171 | 532 | 264 | 252 |
-| School | 4,138 | 48 | 0.0 | 372 [359–385] | 249 | 803 | 375 | 369 |
-| Market | 1,871 | 45 | 14.3 | 276 [257–294] | 131 | 720 | 359 | 207 |
-| Other | 1,111 | 46 | 7.9 | 300 [278–324] | 198 | 644 | 319 | 284 |
+| Work | 5,787 | 42 | 0.2 | 254 [246–262] | 166 | 554 | 261 | 249 |
+| School | 8,330 | 48 | 0.0 | 365 [356–373] | 248 | 796 | 355 | 374 |
+| Market | 3,729 | 43 | 13.9 | 268 [254–281] | 132 | 645 | 325 | 224 |
+| Other | 2,154 | 48 | 8.4 | 309 [291–327] | 184 | 742 | 340 | 281 |
 
 Table: **Table 4.** Daily heat exposure per person (°C·min above 26 °C UTCI) by destination type (trip purpose).
 
@@ -101,32 +101,32 @@ Note. Destination types: Work: offices, shops, commercial and industrial buildin
 | Home area | n | Mean per person [95% CI] | Median per person | 90th pct. per person | Mean per person, walked | Mean per person, transit |
 |:---|---:|---:|---:|---:|---:|---:|
 | *Relative Wealth Index quintile* | | | | | | |
-| Q1 (poorest) | 2,027 | 343 [323–363] | 199 | 773 | 348 | 339 |
-| Q2 | 2,255 | 317 [302–332] | 208 | 738 | 318 | 316 |
-| Q3 | 1,719 | 321 [304–338] | 226 | 662 | 371 | 281 |
-| Q4 | 2,002 | 293 [276–309] | 188 | 674 | 336 | 260 |
-| Q5 (richest) | 1,995 | 291 [274–307] | 196 | 605 | 320 | 265 |
+| Q1 (poorest) | 4,005 | 351 [337–366] | 213 | 815 | 339 | 361 |
+| Q2 | 4,369 | 301 [291–312] | 196 | 664 | 298 | 303 |
+| Q3 | 3,639 | 328 [315–341] | 221 | 705 | 357 | 305 |
+| Q4 | 4,000 | 283 [272–294] | 181 | 664 | 317 | 254 |
+| Q5 (richest) | 3,978 | 282 [272–294] | 191 | 614 | 309 | 261 |
 | *Morphological informality* | | | | | | |
-| Low | 4,037 | 317 [306–330] | 210 | 707 | 365 | 282 |
-| Medium | 4,904 | 297 [288–307] | 201 | 642 | 325 | 275 |
-| High | 798 | 217 [198–236] | 134 | 478 | 200 | 246 |
+| Low | 8,184 | 319 [312–328] | 212 | 711 | 355 | 292 |
+| Medium | 9,764 | 294 [287–301] | 194 | 646 | 318 | 273 |
+| High | 1,539 | 215 [201–229] | 126 | 491 | 196 | 248 |
 
 Table: **Table 5.** Daily heat exposure per person (°C·min above 26 °C UTCI) by the wealth and informality of the home location.
 
-Note. Relative Wealth Index (Chi et al. 2022; Data for Good at Meta, ~2.4 km tiles): quintiles over all agents. Morphological informality (IDEAMAPS; Hafner et al. 2026): class of the home's 100 m grid cell, from the form of buildings and roads (low: large, detached, regularly arranged buildings; high: small, close-together, irregularly arranged buildings with roads hard to see or absent). The layer covers Nairobi's built-up core; 261 agents outside the informality layer are excluded from the informality rows (and from Figure 4b).
+Note. Relative Wealth Index (Chi et al. 2022; Data for Good at Meta, ~2.4 km tiles): quintiles over all agents. Morphological informality (IDEAMAPS; Hafner et al. 2026): class of the home's 100 m grid cell, from the form of buildings and roads (low: large, detached, regularly arranged buildings; high: small, close-together, irregularly arranged buildings with roads hard to see or absent). The layer covers Nairobi's built-up core; 513 agents outside the informality layer are excluded from the informality rows (and from Figure 4b).
 
 | Street | Road class | Length (m) | People | Person-min | Total °C·min | °C·min per person |
 |:---|---:|---:|---:|---:|---:|---:|
-| Juja Road | secondary | 458 | 186 | 1,166 | 4,525 | 24.3 |
-| Koma Rock Road | secondary | 243 | 196 | 664 | 4,006 | 20.4 |
-| Kangundo Road | trunk | 442 | 100 | 614 | 3,861 | 38.6 |
-| Thika Road | trunk | 1019 | 39 | 561 | 3,501 | 89.8 |
-| Outer Ring Road | primary | 806 | 50 | 551 | 3,403 | 68.1 |
-| Outer Ring Road | secondary | 596 | 66 | 539 | 3,317 | 50.3 |
-| Mama Ng'endo Road | unclassified | 209 | 254 | 751 | 3,268 | 12.9 |
-| Outer Ring Road | secondary | 320 | 117 | 515 | 3,242 | 27.7 |
-| Lang'ata Link Road | secondary | 303 | 115 | 476 | 3,034 | 26.4 |
-| Road to Utawala Academy | unclassified | 2423 | 14 | 505 | 3,025 | 216.1 |
+| Outer Ring Road | secondary | 596 | 159 | 1,322 | 8,371 | 52.6 |
+| Juja Road | secondary | 458 | 304 | 1,925 | 7,839 | 25.8 |
+| Koma Rock Road | secondary | 243 | 354 | 1,212 | 7,481 | 21.1 |
+| Kangundo Road | trunk | 442 | 192 | 1,170 | 7,442 | 38.8 |
+| Mombasa Road | trunk | 794 | 105 | 1,152 | 7,373 | 70.2 |
+| Jogoo Road | secondary | 791 | 140 | 1,524 | 6,615 | 47.3 |
+| Mama Ng'endo Road | unclassified | 209 | 505 | 1,477 | 6,526 | 12.9 |
+| Thika Road | trunk | 1019 | 71 | 1,015 | 6,293 | 88.6 |
+| Macharia Road | unclassified | 272 | 352 | 1,335 | 6,124 | 17.4 |
+| (unnamed) | service | 658 | 123 | 1,120 | 6,117 | 49.7 |
 
 Table: **Table 6.** The ten street segments with the most total exposure.
 
@@ -134,39 +134,39 @@ Note. A segment is the stretch of street between two network nodes, both directi
 
 | Stop | People waiting | Person-min waiting | Total °C·min | °C·min per person |
 |:---|---:|---:|---:|---:|
-| Kangemi Terminus | 73 | 373 | 4,051 | 55.5 |
-| Maziwa | 96 | 468 | 3,725 | 38.8 |
-| Olympic Primary School | 82 | 398 | 3,532 | 43.1 |
-| Kenafric | 84 | 392 | 3,027 | 36.0 |
-| Mother Teresa Road | 72 | 352 | 2,881 | 40.0 |
-| Thayo | 46 | 253 | 2,635 | 57.3 |
-| Kwa DC | 77 | 415 | 2,434 | 31.6 |
-| Shell Petrol Station/Catholic Church | 47 | 259 | 2,381 | 50.7 |
-| Kanungaga | 73 | 351 | 2,356 | 32.3 |
-| Tumaini/Tassia | 64 | 352 | 2,114 | 33.0 |
+| Olympic Primary School | 157 | 833 | 7,551 | 48.1 |
+| Kangemi Terminus | 147 | 650 | 7,013 | 47.7 |
+| Maziwa | 170 | 807 | 6,900 | 40.6 |
+| Kenafric | 165 | 875 | 6,443 | 39.0 |
+| Kwa DC | 149 | 747 | 5,406 | 36.3 |
+| Mother Teresa Road | 106 | 476 | 4,147 | 39.1 |
+| Tumaini/Tassia | 113 | 554 | 4,106 | 36.3 |
+| Mathare North Terminal | 148 | 734 | 4,038 | 27.3 |
+| Mbagathi Highway | 158 | 666 | 3,998 | 25.3 |
+| Kanungaga | 111 | 572 | 3,847 | 34.7 |
 
 Table: **Table 7.** The ten transit stops with the most exposure while waiting to board.
 
-Note. Waiting at stops accounts for 8.1% of all exposure; walking accounts for the rest.
+Note. Waiting at stops accounts for 8.0% of all exposure; walking accounts for the rest.
 
 | Ward | Agents | Mean per resident | Median per resident | Mean RWI | Medium/high informality (%) |
 |:---|---:|---:|---:|---:|---:|
 | *Highest mean exposure* | | | | | |
-| Muthwani | 55 | 1288 | 998 | 0.40 | 9 |
-| Ruai | 97 | 800 | 431 | 0.79 | 41 |
-| Mwihoko | 45 | 610 | 529 | 0.76 | 18 |
-| Imara Daima | 27 | 599 | 430 | 0.70 | 41 |
-| Ndenderu | 64 | 572 | 465 | 1.07 | 67 |
+| Oloosirkon/Sholinke | 23 | 1204 | 1008 | -0.05 | 0 |
+| Kinanie | 16 | 1096 | 919 | 0.03 | – |
+| Muthwani | 93 | 1016 | 896 | 0.44 | 9 |
+| Ruai | 193 | 755 | 529 | 0.76 | 41 |
+| Mwihoko | 92 | 690 | 550 | 0.80 | 18 |
 | *Lowest mean exposure* | | | | | |
-| Lindi | 136 | 148 | 77 | 1.11 | 99 |
-| Huruma | 90 | 128 | 61 | 0.92 | 80 |
-| Mlango Kubwa | 51 | 115 | 48 | 1.31 | 67 |
-| Mabatini | 44 | 83 | 72 | 0.82 | 82 |
-| Ngei | 83 | 76 | 46 | 0.83 | 67 |
+| Makina | 192 | 145 | 105 | 1.18 | 78 |
+| Mlango Kubwa | 109 | 128 | 71 | 1.34 | 72 |
+| Sarangombe | 121 | 122 | 59 | 1.33 | 83 |
+| Ngei | 178 | 110 | 44 | 0.83 | 63 |
+| Mabatini | 85 | 103 | 70 | 0.82 | 81 |
 
 Table: **Table 8.** Wards with the highest and lowest mean daily exposure per resident (°C·min above 26 °C UTCI).
 
-Note. Wards with at least 15 simulated residents (115 of 128 wards in the study area). Mean RWI: mean Relative Wealth Index at residents' homes. Medium/high informality: share of residents whose home cell is classed medium or high.
+Note. Wards with at least 15 simulated residents (118 of 128 wards in the study area). Mean RWI: mean Relative Wealth Index at residents' homes. Medium/high informality: share of residents whose home cell is classed medium or high.
 
 # Behavioural sensitivity
 
