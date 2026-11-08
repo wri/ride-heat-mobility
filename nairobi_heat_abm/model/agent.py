@@ -102,6 +102,11 @@ class TravelBehaviorParams:
     })
     walk_intrazonal_max_km: float = 1.3
     walk_share_shift_pp: float = 0.0  # percentage points added at every distance (sensitivity)
+    # No walking the whole way beyond walk_max_km (P_walk = 0, whatever the shift). In
+    # JICA Fig. A4.5.2 the 2013 survey shows almost no walk trips beyond ~15 km (work
+    # ~15-17 km, school ~14 km, others ~19 km), but the fitted log curves stay positive to
+    # 22-29 km; uncapped, they sent a few agents on 15-35 km walks each way.
+    walk_max_km: float = 15.0
     walk_only_share: float = 0.55     # used only when walk_choice == "fixed_share"
 
     # Trip purpose weights (normalised in __post_init__)
@@ -174,6 +179,8 @@ class TravelBehaviorParams:
             raise ValueError("walk_only_share must be in [0, 1]")
         if self.walk_choice not in ("distance", "fixed_share"):
             raise ValueError("walk_choice must be 'distance' or 'fixed_share'")
+        if not self.walk_max_km > self.walk_intrazonal_max_km:
+            raise ValueError("walk_max_km must be greater than walk_intrazonal_max_km")
         for purpose, ab in self.walk_share_curve.items():
             if len(ab) != 2 or not all(np.isfinite(ab)):
                 raise ValueError(f"walk_share_curve[{purpose!r}] must be [intercept_pct, slope_pct_per_ln_km]")
@@ -225,6 +232,8 @@ def walk_probability(behavior: "TravelBehaviorParams", purpose: str, distance_m:
     """P(walk the whole way) for a trip of this purpose and walking-network distance
     under walk_choice == "distance" (see TravelBehaviorParams)."""
     d_km = distance_m / 1000.0
+    if d_km > behavior.walk_max_km:
+        return 0.0
     if d_km < behavior.walk_intrazonal_max_km:
         pct = behavior.walk_share_intrazonal.get(purpose, behavior.walk_share_intrazonal.get("other", 82.7))
     else:

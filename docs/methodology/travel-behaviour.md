@@ -129,7 +129,7 @@ Every agent who reaches its destination makes a trip home the same day. When it 
 
 ## Mode split
 
-Whether a trip is walked the whole way depends on its length and purpose. Each agent walks with probability *P*<sub>walk</sub>(*d*, purpose), where *d* is the shortest walking-network distance from home to destination. Everyone else plans a route that may ride a matatu or bus (see [ABM core](../dev/abm-core.md#transit-routing--route_transit)). Such a route can still turn out to be all walking, if no transit route is in service or the drawn wait exceeds the agent's tolerance.
+Whether a trip is walked the whole way depends on its length and purpose. Each agent walks with probability *P*<sub>walk</sub>(*d*, purpose), where *d* is the shortest walking-network distance from home to destination. Everyone else plans a route that may ride a matatu or bus (see [ABM core](../dev/abm-core.md#transit-routing--route_transit)). Such a route can still turn out to be all walking, if no transit route is in service, or if the drawn wait exceeds the agent's tolerance and walking would be faster than waiting (see [Transit wait time and wait tolerance](#transit-wait-time-and-wait-tolerance)).
 
 *P*<sub>walk</sub> comes from the walk-split model of the JICA Nairobi master plan (JICA 2014, Appendix 4, §A4.5.3; `articles/jica_appendix3_2012.pdf`), fitted to the 2013 Nairobi household person-trip survey:
 
@@ -146,8 +146,11 @@ Whether a trip is walked the whole way depends on its length and purpose. Each a
 | `walk_share_intrazonal` | JICA 2013 intrazonal shares | % walking for trips shorter than `walk_intrazonal_max_km` |
 | `walk_intrazonal_max_km` | 1.3 | see below |
 | `walk_share_shift_pp` | 0 | percentage points added at every distance (for sensitivity analysis) |
+| `walk_max_km` | 15 | no walking the whole way beyond this distance (see below) |
 
 **Why two parts.** JICA's diversion curves model trips *between* its traffic zones; short trips within a zone have a separate, flat walk share. Applied to very short trips, the curves give too little walking: 74% of 50 m work trips. The model mirrors JICA's structure. Trips shorter than 1.3 km get the 2013 intrazonal share for their purpose; longer trips get the curve. 1.3 km is the mean distance between two random points in an average Nairobi small zone (City of Nairobi: 106 zones, ~6.6 km² each, so ~2.9 km across). The switch causes a jump at 1.3 km (work: 67% just below, 35% just above), as in JICA's own model.
+
+**Why a 15 km cap.** JICA Figure A4.5.2 plots the observed walk share in about 0.5 km bins from 0 to 30 km. The curves fit well up to 10–12 km, but beyond about 15 km the survey shows almost no walk trips (work: a few up to ~17 km; school: none from ~14.5 km; others: scattered points up to ~19 km), while the fitted log curves stay positive to 22.5 km (work), 22 km (school) and 29 km (others): at 20 km they still give 1.5%, 1.8% and 5.7%. Because the trip home reuses the outbound walk draw, an uncapped 18 km walk became 36 km in a day. `walk_max_km` sets P<sub>walk</sub> to zero beyond 15 km, one cap for all purposes (added 2026-11-08). Trips beyond it can still end up walked if transit is unavailable.
 
 **Check.** Tatah et al. (2023), from the same 2013 survey, report walking as the main mode of 43% of Nairobi trips. At the calibrated β and walking weight, the model walks 43% of trips the whole way (see [Calibration](#calibration-of-β-and-the-walking-time-weight)). The curves set the walk share *given* trip length, so this checks the trip-length distribution (β) against an independent source.
 
@@ -196,7 +199,7 @@ Because the number of candidate destinations at distance *d* grows roughly in pr
 | `transit_wait_tolerance_min` | 15 min | <!-- TODO --> |
 | `transit_wait_tolerance_std` | 5 min | <!-- TODO --> |
 
-An agent who boards transit waits at the first stop for a time drawn from `Exponential(mean = transit_mean_wait_min)`. The same mean is used as the expected wait when the agent plans its route, so it shapes both whether the agent rides at all and how long it actually stands at the stop (see [ABM core](../dev/abm-core.md#transit-routing--route_transit)). If the drawn wait exceeds `transit_wait_tolerance_min`, the agent walks instead.
+An agent who boards transit waits at the first stop for a time drawn from `Exponential(mean = transit_mean_wait_min)`. The same mean is used as the expected wait when the agent plans its route, so it shapes both whether the agent rides at all and how long it actually stands at the stop (see [ABM core](../dev/abm-core.md#transit-routing--route_transit)). If the drawn wait exceeds `transit_wait_tolerance_min`, the agent considers walking instead, and walks the whole way only if that would get it there no later than waiting and riding (walking time ≤ drawn wait + the transit route's own travel time, unweighted). Otherwise it waits and boards. The tolerance is when an agent starts weighing the alternative, not a point at which it walks however far. Before 2026-11-08 every wait over tolerance meant walking: in a 5,000-agent check that sent 381 trips on forced walks (median 8.4 km, up to 40 km) and raised mean exposure from 286 to 316 °C·min. With the rule, 66 trips are walked this way (median 2.2 km, at most 10 km).
 
 The GTFS feed's headways are **not** used for the wait. The 2019 DigitalMatatus feed gives every one of its trips the same headways (5 min 06–09 and 15–21, 15 min 09–15), which looks like a placeholder schedule rather than measured service. The feed's frequency bands still decide whether a route is running at all at the agent's departure time (see [Transport network](transport-network.md)).
 

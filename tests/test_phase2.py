@@ -191,19 +191,55 @@ class _FixedDrawRNG:
         return self.wait_s
 
 
-def test_route_transit_falls_back_to_walk_when_wait_exceeds_tolerance(transit_graph):
+def _walk_seconds(G, edges, speed):
+    return sum(G[u][v][k]["length"] for u, v, k, _ in edges) / speed
+
+
+def test_route_transit_waits_when_over_tolerance_but_walking_is_slower(transit_graph):
+    """A wait over tolerance doesn't force a walk that takes longer than waiting and riding."""
     nodes = sorted(transit_graph.nodes())
     origin, dest = nodes[0], nodes[2]
     bands = _distinct_bands(transit_graph)
+    walk_edges = route_walk(transit_graph, origin, dest, walk_speed_mps=1.2)
+    wait_s = 1000.0  # over the 5-min tolerance
+    assert _walk_seconds(transit_graph, walk_edges, 1.2) > wait_s + 300.0  # walking is slower here
 
-    # 10:00:00 -> the 900s-headway band; force a 1000s draw against a 5-min tolerance
+    departure_tick = (10 * 3600 - 6 * 3600) // 60  # 10:00, in service
+    edges = route_transit(
+        transit_graph, origin, dest, departure_tick=departure_tick, wait_tolerance_min=5.0, mean_wait_min=5.0,
+        timestep_s=60.0, bands=bands, rng=_FixedDrawRNG(wait_s), walk_speed_mps=1.2,
+    )
+    rides = [e for e in edges if transit_graph[e[0]][e[1]][e[2]].get("edge_type") == "transit"]
+    assert rides, "should wait and board"
+    assert rides[0][3] == round(wait_s / 60.0)  # the full drawn wait is charged
+
+
+def test_route_transit_walks_when_over_tolerance_and_walking_is_faster(transit_graph):
+    nodes = sorted(transit_graph.nodes())
+    origin, dest = nodes[0], nodes[2]
+    bands = _distinct_bands(transit_graph)
+    walk_edges = route_walk(transit_graph, origin, dest, walk_speed_mps=1.2)
+    wait_s = 2.0 * _walk_seconds(transit_graph, walk_edges, 1.2)  # longer than the whole walk
+
     departure_tick = (10 * 3600 - 6 * 3600) // 60
     edges = route_transit(
         transit_graph, origin, dest, departure_tick=departure_tick, wait_tolerance_min=5.0, mean_wait_min=5.0,
-        timestep_s=60.0, bands=bands, rng=_FixedDrawRNG(1000.0), walk_speed_mps=1.2,
+        timestep_s=60.0, bands=bands, rng=_FixedDrawRNG(wait_s), walk_speed_mps=1.2,
     )
-    walk_edges = route_walk(transit_graph, origin, dest, walk_speed_mps=1.2)
     assert edges == walk_edges
+
+
+def test_gives_up_waiting_rule():
+    from nairobi_heat_abm.model.routing import _gives_up_waiting
+
+    # Within tolerance: never walks.
+    assert not _gives_up_waiting(600.0, 15.0, 100.0, 1.2, 300.0)
+    # Over tolerance, short walk (83 s) beats 1,200 s wait + 300 s ride: walks.
+    assert _gives_up_waiting(1200.0, 15.0, 100.0, 1.2, 300.0)
+    # Over tolerance, 20 km walk (~4.6 h) vs 1,200 s wait + 1,800 s ride: waits.
+    assert not _gives_up_waiting(1200.0, 15.0, 20_000.0, 1.2, 1800.0)
+    # No walkable path: waits.
+    assert not _gives_up_waiting(1200.0, 15.0, None, 1.2, 300.0)
 
 
 def test_route_transit_falls_back_to_walk_outside_all_frequency_bands(transit_graph):

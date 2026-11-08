@@ -231,7 +231,8 @@ def route_transit(
     consideration and no separate nearest-stop snapping step.
     Falls back to route_walk() if G has no transit edges, the departure time falls
     outside every band, the chosen boarding edge has no coverage at the agent's exact
-    time, or the actual drawn wait exceeds wait_tolerance_min.
+    time, or the actual drawn wait exceeds wait_tolerance_min AND walking would be
+    no slower than waiting and riding (_gives_up_waiting); a longer walk means it waits.
     """
 ```
 
@@ -248,7 +249,7 @@ wait mean is calibrated from the WRI rider survey instead (5.65 min, see
 all, the ACTUAL wait for that first boarding is drawn from `Exponential(mean=mean_wait_min)`
 — plan on the expectation, experience the randomness. Only the first boarding's wait is
 charged; transfers to another route at a shared stop are free. If that drawn wait
-exceeds `wait_tolerance_min` (or the edge has no coverage at the exact time, or no band
+exceeds `wait_tolerance_min` and walking would be no slower than waiting and riding (or the edge has no coverage at the exact time, or no band
 covers the departure time, or G has no transit at all), `route_transit()` falls back to
 a plain `route_walk()` instead of failing the trip outright — `route_walk()` itself
 excludes `edge_type=="transit"` edges so a walk trip can never silently ride for free.

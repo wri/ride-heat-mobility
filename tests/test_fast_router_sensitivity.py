@@ -53,7 +53,8 @@ def test_fast_router_walk_matches_networkx_cost(transit_graph):
 
 @pytest.mark.parametrize("tick_i, draw, tolerance", [
     (30, 1.0, 15.0),    # 06:30, morning band, boards
-    (30, 50.0, 15.0),   # wait far over tolerance -> walk fallback
+    (30, 50.0, 15.0),   # wait far over tolerance, walking faster than waiting -> walk
+    (30, 3.0, 15.0),    # 17 min wait, over tolerance; at some speeds walking is slower -> waits and boards
     (240, 0.2, 15.0),   # 10:00, other band
     (900, 1.0, 15.0),   # 21:00, outside every band -> walk
 ])
@@ -323,6 +324,23 @@ def test_walk_probability_follows_jica_curves():
     assert walk_probability(shifted, "market", 2000.0) == pytest.approx(walk_probability(b, "other", 2000.0) + 0.10)
     with pytest.raises(ValueError):
         TravelBehaviorParams(walk_choice="sometimes")
+
+
+def test_walk_probability_is_zero_beyond_walk_max_km():
+    from nairobi_heat_abm.model.agent import walk_probability
+    b = TravelBehaviorParams()
+    assert b.walk_max_km == 15.0
+    # The "others" curve is still positive at 18 km, but the cap applies.
+    assert (51.848 - 15.4 * np.log(18)) > 0
+    assert walk_probability(b, "other", 18_000.0) == 0.0
+    assert walk_probability(b, "other", 14_900.0) > 0.0
+    # The cap holds whatever the sensitivity shift.
+    assert walk_probability(dataclasses.replace(b, walk_share_shift_pp=15.0), "school", 16_000.0) == 0.0
+    # A wider cap restores the curve.
+    wide = dataclasses.replace(b, walk_max_km=30.0)
+    assert walk_probability(wide, "other", 18_000.0) == pytest.approx((51.848 - 15.4 * np.log(18)) / 100)
+    with pytest.raises(ValueError):
+        TravelBehaviorParams(walk_max_km=1.0)  # must exceed the intrazonal limit
 
 
 def test_distance_walk_choice_walks_short_trips_more(transit_graph):

@@ -50,9 +50,10 @@ sensitivity:
   baseline_replicates: 5
   design_seed: 2026
   base_seed: 1000          # trajectory t runs with seed base_seed + t
-  output_dir: outputs/sensitivity_children_school/
+  output_dir: outputs/sensitivity_routing_fix/
   # earlier batches: outputs/sensitivity/ = one-way trips; outputs/sensitivity_roundtrip/ = round trips
-  # before children were limited to school trips (2026-11-07)
+  # before children were limited to school trips (2026-11-07); outputs/sensitivity_children_school/ =
+  # before the 2026-11-08 routing fixes (wait-over-tolerance walks only if faster; walk_max_km = 15)
   ranges: {}               # optional overrides, e.g. {walk_only_share: [0.3, 0.8]}
   # factors: [...]         # optional subset of factor names; default = all
 

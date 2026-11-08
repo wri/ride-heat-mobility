@@ -192,9 +192,11 @@ def route_transit(
     departure time. Transfers to another route at a shared
     stop are free wherever the path crosses one (only the first boarding's wait is
     charged; transfer wait time isn't modeled — a deliberate simplification, not an
-    oversight). If the drawn wait exceeds wait_tolerance_min, or the boarding edge
-    turns out to have no coverage at the agent's exact departure time, this trip falls
-    back to a plain route_walk() instead of failing outright.
+    oversight). If the drawn wait exceeds wait_tolerance_min, the agent walks the whole
+    way instead only when walking would get it there no later than waiting and riding
+    (see _gives_up_waiting); otherwise it waits and boards. If the boarding edge has no
+    coverage at the agent's exact departure time, the trip falls back to a plain
+    route_walk() instead of failing outright.
 
     Falls back to route_walk() immediately if G has no transit edges at all, or if the
     agent's departure time falls outside every known frequency band.
@@ -229,10 +231,42 @@ def route_transit(
 
     wait_s = float(rng.exponential(scale=mean_wait_s))
     if wait_s > wait_tolerance_min * 60.0:
-        return route_walk(G, origin_node, destination_node, walk_speed_mps)
+        route_s = sum(_edge_travel_s(G[u][v][k], walk_speed_mps) for u, v, k, _ in edges)
+        try:
+            walk_route = route_walk(G, origin_node, destination_node, walk_speed_mps)
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            walk_route = None
+        walk_m = (sum(float(G[u][v][k].get("length", 0.0)) for u, v, k, _ in walk_route)
+                  if walk_route is not None else None)
+        if _gives_up_waiting(wait_s, wait_tolerance_min, walk_m, walk_speed_mps, route_s):
+            return walk_route
 
     edges[first_transit_idx][3] = int(round(wait_s / timestep_s))
     return [tuple(e) for e in edges]
+
+
+def _edge_travel_s(data: dict, walk_speed_mps: float) -> float:
+    """Unweighted seconds to traverse one edge: a ride's travel_time, else walking."""
+    if data.get("edge_type") == "transit":
+        return float(data.get("travel_time", data.get("length", 0.0)))
+    return float(data.get("length", 0.0)) / walk_speed_mps
+
+
+def _gives_up_waiting(wait_s: float, wait_tolerance_min: float, walk_m: float | None,
+                      walk_speed_mps: float, route_s: float) -> bool:
+    """
+    Whether an agent facing a boarding wait of wait_s walks the whole way instead.
+
+    Only a wait longer than the agent's tolerance makes it consider walking, and it
+    then walks only if walking would get it there no later than waiting and riding:
+    walk time <= wait + the transit route's own travel time (unweighted seconds; the
+    walking-time weight shapes route choice, not this comparison). Otherwise it waits
+    and boards. Before 2026-11-08 every wait over tolerance meant walking, however far,
+    which sent riders on forced walks of up to ~40 km.
+    """
+    if wait_s <= wait_tolerance_min * 60.0 or walk_m is None:
+        return False
+    return walk_m / walk_speed_mps <= wait_s + route_s
 
 
 def _activate_edge(pool: AgentPool, i: int, G: nx.MultiDiGraph, u: int, v: int, key: int, wait_ticks: int) -> None:
@@ -466,14 +500,17 @@ class FastRouter:
             return _walk_fallback()
 
         edges, first_transit, boarding = [], None, None
+        route_s = 0.0  # unweighted travel time of the chosen route, excluding the wait
         for a, c in zip(found[1][:-1], found[1][1:]):
             j = self.pair_index[(a, c)]
             if transit_cost[j] < walk_cost[j]:
                 key = int(self.transit_key[b, j])
+                route_s += float(self.transit_tt[b, j])
                 if first_transit is None:
                     first_transit, boarding = len(edges), (a, c, key)
             else:
                 key = int(self.walk_key[j])
+                route_s += float(self.walk_len[j]) / walk_speed_mps
             edges.append([int(self.nodes[a]), int(self.nodes[c]), key, 0])
 
         if first_transit is None:
@@ -481,7 +518,8 @@ class FastRouter:
         if _headway_at(self.transit_freqs.get(boarding, []), time_of_day_s) is None:
             return _walk_fallback()  # boarding edge not in service at the exact departure time
         wait_s = float(std_exp_draw) * mean_wait_s
-        if wait_s > wait_tolerance_min * 60.0:
+        if _gives_up_waiting(wait_s, wait_tolerance_min, walk_m if walk_path is not None else None,
+                             walk_speed_mps, route_s):
             return _walk_fallback()
         edges[first_transit][3] = int(round(wait_s / timestep_s))
         return [tuple(e) for e in edges]
