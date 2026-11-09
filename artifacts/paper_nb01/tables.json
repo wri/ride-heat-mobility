@@ -541,10 +541,14 @@
   "mean": 268.9453701891639,
   "median": 194.03643035888672,
   "p90": 569.7137512207034,
+  "max": 3412.836181640625,
   "zero_pct": 3.5900000000000003,
   "stop_share_pct": 11.894344999794642,
   "n_no_informality": 513,
   "n_segments": 65136,
-  "n_stops": 1949
+  "n_stops": 1949,
+  "fig1_overflow_n": 206,
+  "fig1_overflow_pct": 1.03,
+  "fig1_cap": 1500
  }
 }

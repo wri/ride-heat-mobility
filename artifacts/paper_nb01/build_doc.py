@@ -29,8 +29,10 @@ FIGS = [  # (file stem, width, caption)
     ("fig1_exposure_distribution", "3.5in",
      "**Figure 1.** Distribution of daily heat exposure per person, by the mode of the outbound trip. "
      "Exposure is the sum over outdoor minutes (walking and waiting at stops) of the degrees by which UTCI exceeds "
-     "26 °C, over the outbound trip and the trip home. Dashed lines: medians. Bins of 25 °C·min; the last bin "
-     f"includes all values ≥ 1,475 °C·min. n = {N['n']:,} agents."),
+     "26 °C, over the outbound trip and the trip home. Dashed lines: medians. Bins of 25 °C·min. Filled bars at "
+     f"right: share of agents with exposure ≥ {N['fig1_cap']:,} °C·min, plotted off-scale "
+     f"({N['fig1_overflow_n']:,} agents, {N['fig1_overflow_pct']:.0f}% of all; maximum {N['max']:,.0f}). "
+     f"n = {N['n']:,} agents."),
     ("fig2_segment_maps", "6.5in",
      "**Figure 2.** Where exposure is picked up on the street network. (a) Total exposure accumulated on each "
      f"street segment by everyone who walked it ({N['n_segments']:,} segments with non-zero exposure). "
@@ -192,11 +194,6 @@ if (NB02 / "tables.json").exists():
          "Relative Wealth Index quintile, and of medium/high minus low informality. These are differences of group "
          "means and much noisier than the city-wide outcomes (Table 10). Share home by 20:00: share of travellers "
          "back home by the end of the simulated day."),
-        ("../paper_nb02/fig8_wait_tolerance", "4.8in",
-         "**Figure 8.** The wait-tolerance threshold. (a) Mean daily exposure and (b) minutes outdoors per person in "
-         "every Morris run, by the run's wait tolerance (the longest wait for a vehicle an agent accepts before "
-         "walking instead). Points: runs (jittered horizontally); line: mean over runs at each level, all other "
-         "factors varying. Dashed line: the baseline mean boarding wait (5.65 min)."),
     ]
     TABLES2 = [
         ("table7", "**Table 9.** Behavioural factors varied in the sensitivity analysis.",
@@ -240,7 +237,7 @@ if (NB02 / "tables.json").exists():
         + ", ".join(f"{n.lower()} ({v:.0f})" for n, v in top[:4])
         + f" and {top[4][0].lower()} ({top[4][1]:.0f} °C·min; Figure 5, Table 11).",
         "",
-        "Factors act through one of two channels (Figure 6). Route and mode behaviour (wait tolerance, destination "
+        "Factors act through one of two channels (Figure 6). Route and mode behaviour (destination "
         "distance decay, walk share, walking speed, boarding wait, walking-time weight) changes how long people are "
         "outdoors. Timing behaviour (morning departure peak, purpose-specific departure timing, work and school end "
         "times) barely changes minutes outdoors but shifts when in the day they fall, and so the UTCI experienced. "
@@ -249,14 +246,14 @@ if (NB02 / "tables.json").exists():
         f"({MU} {mu_of('school_end_hour_mean'):.0f}); it matters because every child makes a school round trip and "
         "comes home in the mid-afternoon.",
         "",
-        "The wait-tolerance effect is a threshold, not a gradient (Figure 8). At a tolerance of 5 minutes, below the "
-        f"5.65-minute mean boarding wait, mean exposure averaged {N2['wait_tol_5']:.0f} °C·min and "
-        f"{N2['wait_tol_5_out']:.0f} minutes outdoors across runs, because most would-be riders walk instead; from "
-        f"13 to 30 minutes it was nearly flat ({N2['wait_tol_ge13_lo']:.0f}–{N2['wait_tol_ge13_hi']:.0f} °C·min). "
-        f"Its large {MU} and σ come almost entirely from steps to or from the 5-minute level.",
+        f"The top three factors are effectively tied: their {MU} values lie within 1 °C·min of each other and their "
+        "bootstrap intervals overlap widely. The walking-time weight has the largest σ, so its effect depends most "
+        f"on the other factors. Wait tolerance has no measurable effect ({MU} {mu_of('transit_wait_tolerance_min'):.1f}, "
+        f"below the seed SD of {N2['base_sd']:.0f}). An agent who gives up waiting walks only when walking is "
+        "faster than waiting and riding, so giving up seldom changes the trip.",
         "",
-        "The equity gaps (Figure 7) are most sensitive to wait tolerance, walk share and destination distance decay, "
-        "that is, to whether people ride and how far they travel. They are noisy at the baseline (Table 10), so their rankings "
+        "The equity gaps (Figure 7) are most sensitive to walk share, destination distance decay and walking speed, "
+        "that is, to how much people walk and how far they travel. They are noisy at the baseline (Table 10), so their rankings "
         "are less certain than those for the city-wide outcomes.",
         "",
         "## Figures",

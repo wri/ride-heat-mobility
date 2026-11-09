@@ -246,7 +246,7 @@ tables["table5"] = {
 # Key numbers for captions/text.
 tables["numbers"] = {
     "n": int(len(exp)), "mean": float(exp.mean()), "median": float(np.median(exp)),
-    "p90": float(np.percentile(exp, 90)), "zero_pct": float((exp == 0).mean() * 100),
+    "p90": float(np.percentile(exp, 90)), "max": float(exp.max()), "zero_pct": float((exp == 0).mean() * 100),
     "stop_share_pct": float(stops["heat_degC_min"].sum() / (segments["heat_degC_min"].sum() + stops["heat_degC_min"].sum()) * 100),
     "n_no_informality": int(agents["informality"].isna().sum()),
     "n_segments": int((segments["heat_degC_min"] > 0).sum()), "n_stops": int((stops["heat_degC_min"] > 0).sum()),
@@ -255,13 +255,28 @@ tables["numbers"] = {
 # ---- Figure 1: distribution by outbound mode ---------------------------------------------
 fig, ax = plt.subplots(figsize=(SINGLE, 2.3))
 bins = np.arange(0, 1525, 25)
+CAP = bins[-1]                      # values >= CAP go in a separate overflow bar
+OV = {"walk": (1570, 1595), "transit": (1595, 1620)}  # overflow bar positions, side by side
+overflow = {}
 for m, col, lab in (("walk", WALK, "Walked"), ("transit", TRANSIT, "Rode transit")):
     x = exp[mode == m]
-    h, _ = np.histogram(np.clip(x, 0, bins[-1] - 1e-9), bins=bins)
+    h, _ = np.histogram(x[x < CAP], bins=bins)
     ax.stairs(h / len(x) * 100, bins, color=col, lw=1.4, label=f"{lab} (n = {len(x):,})")
     ax.axvline(np.median(x), color=col, lw=0.8, ls=(0, (3, 2)))
-ax.set_xlim(0, 1500)
+    n_ov = int((x >= CAP).sum())
+    overflow[m] = n_ov
+    ax.stairs([n_ov / len(x) * 100], list(OV[m]), color=col, lw=1.4, fill=True, alpha=0.85)
+ax.axvline(1525, color=MUTED, lw=0.6, ls=(0, (1, 2)))
+ax.set_xlim(0, 1660)
+ax.set_xticks([0, 200, 400, 600, 800, 1000, 1200, 1400, 1595])
+ax.set_xticklabels(["0", "200", "400", "600", "800", "1000", "1200", "1400", f"≥{CAP:,}"])
 ymax = ax.get_ylim()[1]
+n_ov_all = sum(overflow.values())
+ax.text(1595, max(overflow["walk"] / (mode == "walk").sum(), overflow["transit"] / (mode == "transit").sum()) * 100
+        + ymax * 0.03, f"n = {n_ov_all}", color=INK2, fontsize=6, ha="center", va="bottom")
+tables["numbers"]["fig1_overflow_n"] = n_ov_all
+tables["numbers"]["fig1_overflow_pct"] = n_ov_all / len(exp) * 100
+tables["numbers"]["fig1_cap"] = int(CAP)
 for m, col in (("walk", WALK), ("transit", TRANSIT)):
     med = np.median(exp[mode == m])
     ax.text(med + 12, ymax * (0.93 if m == "walk" else 0.80), f"median {med:.0f}", color=INK2, fontsize=6.5, va="top")

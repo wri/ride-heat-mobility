@@ -2,8 +2,8 @@
 
 Agent-based model of pedestrian heat exposure, notebooks 01 (main results) and 02 (behavioural sensitivity).
 Figures and tables: `paper_nb01/` and `paper_nb02/`; assembled in `paper_nb01/heat_exposure_main_results.docx`.
-Updated 2026-11-08: children (0–14) make only school trips; main results rerun with 20,000 agents and the two
-routing fixes below. **The sensitivity results are from the batch before those fixes and are out of date.**
+Updated 2026-11-09: children (0–14) make only school trips; main results (20,000 agents) and the sensitivity
+batch rerun with the two routing fixes below.
 
 ## Model in brief
 
@@ -72,50 +72,51 @@ whole way beyond 15 km (the JICA curves were extrapolating past the survey's dat
 
 ## Behavioural sensitivity (notebook 02: Morris elementary effects)
 
+*Rerun 2026-11-09 with both routing fixes (batch: outputs/sensitivity_routing_fix/).*
+
 **Design**
 - 17 behavioural factors varied over plausible ranges. Geography (network, heat, population, amenities) and the
   transit service are held fixed.
 - 10 Morris trajectories (180 runs) + 5 baseline replicates, 3,000 agents per run. Children make only school
-  trips, as in the main results (batch: outputs/sensitivity_children_school/).
-- Baseline: mean 311 °C·min; seed-to-seed SD 6; 65 min outdoors; 73% of exposure on the trip home; 91% of
+  trips, as in the main results.
+- Baseline: mean 269 °C·min; seed-to-seed SD 3; 57 min outdoors; 76% of exposure on the trip home; 92% of
   travellers home by 20:00.
 
 **What drives mean exposure** (μ\* = average change in mean exposure when a factor moves two-thirds of its range)
 
 | Rank | Factor | μ\* (°C·min) | Direction |
 |---|---|---|---|
-| 1 | Wait tolerance before walking instead | 163 | higher tolerance → less exposure |
-| 2 | Destination distance decay | 133 | stronger decay (closer destinations) → less |
-| 3 | Walk-share shift (±15 pp) | 103 | more walking → more |
-| 4 | Mean walking speed | 87 | faster → less |
-| 5 | Mean boarding wait | 71 | longer → more |
-| 6 | Walking-time weight in route choice | 58 | higher → less |
-| 7 | Work end time | 54 | later → less |
+| 1 | Walking-time weight in route choice | 77 | higher → less |
+| 2 | Walk-share shift (±15 pp) | 76 | more walking → more |
+| 3 | Destination distance decay | 76 | stronger decay (closer destinations) → less |
+| 4 | Mean walking speed | 56 | faster → less |
+| 5 | Work end time | 41 | later → less |
+| 6 | Mean boarding wait | 40 | longer → more |
+| 7 | Evening outbound departure peak hour | 30 | later → less |
 
-- 15 of 17 factors have μ\* more than twice the seed SD; only market and other-purpose dwell times (μ\* 6–7) do
-  not.
-- Mean exposure ranged from 161 to 860 °C·min across all runs.
-- Compared with the batch before children were limited to school trips: the top four are unchanged; work end
-  time drops from 5th (μ\* 74) to 7th (54), because fewer agents make work trips; school end time rises from
-  15th (11) to 12th (29), because every child now comes home from school.
+- The top three are effectively tied (bootstrap intervals overlap widely). The walking-time weight has the
+  largest σ, so its effect depends most on the other factors.
+- 16 of 17 factors have μ\* more than twice the seed SD. The exception is **wait tolerance (μ\* 0.6)**, which was
+  ranked first before the fixes (μ\* 163). An agent who gives up waiting now walks only when walking is faster than
+  waiting and riding, so giving up seldom changes the trip. The earlier 5-minute "threshold" was produced by the
+  forced long walks, not by behaviour.
+- Mean exposure ranged from 143 to 454 °C·min across all runs (was 161 to 860).
+- Most other μ\* values are smaller than before because the tail of very long walks is gone (distance decay
+  133 → 76, walk share 103 → 76). The walking-time weight is the exception (58 → 77): it now decides between
+  walking and riding without the forced walks masking it.
 
 **Two channels**
-- Route and mode behaviour (wait tolerance, distance decay, walk share, walking speed, boarding wait,
-  walking-time weight) changes **how long** people are outdoors.
-- Timing behaviour (morning departure peak hour and share, purpose-specific departure timing, work and school
-  end times) barely changes time outdoors but changes **when**, and so the UTCI experienced. Work and school end
+- Route and mode behaviour (walking-time weight, distance decay, walk share, walking speed, boarding wait)
+  changes **how long** people are outdoors.
+- Timing behaviour (morning departure peak hour and share, purpose-specific departure timing, work and school end
+  times) barely changes time outdoors but changes **when**, and so the UTCI experienced. Work and school end
   times act almost entirely through this channel: a later finish moves the trip home out of the afternoon heat.
 
-**The wait-tolerance threshold**
-- The wait-tolerance effect is a threshold, not a gradient. At 5 min tolerance (just under the 5.65 min mean
-  wait), runs average 561 °C·min and 119 min outdoors, because most would-be riders walk. From 13 to 30 min the
-  result is nearly flat (282–312 °C·min). The 5–30 min range was kept deliberately; this threshold is the finding
-  to report.
-
 **Equity gaps**
-- The wealth gap (poorest − richest quintile) and informality gap respond most to wait tolerance, walk share and
-  destination distance decay, i.e. to whether people ride and how far they travel. Both gaps are noisy even at
-  the baseline (SD 34 and 14 °C·min), so their rankings are less certain than those for city-wide outcomes.
+- The wealth gap (poorest − richest quintile) and informality gap respond most to walk share, destination
+  distance decay and walking speed, i.e. to how much people walk and how far they travel. Both gaps are noisy
+  even at the baseline (SD 18 and 11 °C·min), so their rankings are less certain than those for city-wide
+  outcomes.
 
 ## Limitations
 

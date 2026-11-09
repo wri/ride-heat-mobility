@@ -58,7 +58,7 @@ Note. Age group and sex come from the WorldPop rasters at each agent's home; you
 
 ## Figures
 
-![**Figure 1.** Distribution of daily heat exposure per person, by the mode of the outbound trip. Exposure is the sum over outdoor minutes (walking and waiting at stops) of the degrees by which UTCI exceeds 26 °C, over the outbound trip and the trip home. Dashed lines: medians. Bins of 25 °C·min; the last bin includes all values ≥ 1,475 °C·min. n = 20,000 agents.](fig1_exposure_distribution.svg){width=3.5in}
+![**Figure 1.** Distribution of daily heat exposure per person, by the mode of the outbound trip. Exposure is the sum over outdoor minutes (walking and waiting at stops) of the degrees by which UTCI exceeds 26 °C, over the outbound trip and the trip home. Dashed lines: medians. Bins of 25 °C·min. Filled bars at right: share of agents with exposure ≥ 1,500 °C·min, plotted off-scale (206 agents, 1% of all; maximum 3,413). n = 20,000 agents.](fig1_exposure_distribution.svg){width=3.5in}
 
 ![**Figure 2.** Where exposure is picked up on the street network. (a) Total exposure accumulated on each street segment by everyone who walked it (65,136 segments with non-zero exposure). (b) Exposure of one person walking the segment (total divided by the number of distinct people), shown for segments walked by at least 5 people. Both directions of a street are combined. Light grey: segments walked but with no exposure above the threshold, and ward boundaries. Log colour scales. Place labels mark selected wards (CBD: Nairobi Central ward; Kibera: Laini Saba and Sarangombe wards; Dandora and Eastleigh: their wards combined).](fig2_segment_maps.svg){width=6.5in}
 
@@ -176,23 +176,21 @@ Which behavioural assumptions drive the results? 17 behavioural factors (Table 9
 
 ## Results
 
-At the baseline, mean exposure is 311 °C·min per person (seed-to-seed SD 6), with 65 minutes outdoors; 73% of exposure is picked up on the trip home. Across all runs, mean exposure ranged from 161 to 860 °C·min. 15 of the 17 factors have μ\* more than twice the seed SD. The most influential are wait tolerance (163), destination distance decay (133), walk-share shift (103), mean walking speed (87) and mean boarding wait (71 °C·min; Figure 5, Table 11).
+At the baseline, mean exposure is 269 °C·min per person (seed-to-seed SD 3), with 57 minutes outdoors; 76% of exposure is picked up on the trip home. Across all runs, mean exposure ranged from 143 to 454 °C·min. 16 of the 17 factors have μ\* more than twice the seed SD. The most influential are walking-time weight (route choice) (77), walk-share shift (76), destination distance decay (76), mean walking speed (56) and work end time (41 °C·min; Figure 5, Table 11).
 
-Factors act through one of two channels (Figure 6). Route and mode behaviour (wait tolerance, destination distance decay, walk share, walking speed, boarding wait, walking-time weight) changes how long people are outdoors. Timing behaviour (morning departure peak, purpose-specific departure timing, work and school end times) barely changes minutes outdoors but shifts when in the day they fall, and so the UTCI experienced. Work end time (μ\* 54) acts almost entirely through temperature: a later end moves the trip home out of the afternoon heat. School end time acts the same way (μ\* 29); it matters because every child makes a school round trip and comes home in the mid-afternoon.
+Factors act through one of two channels (Figure 6). Route and mode behaviour (destination distance decay, walk share, walking speed, boarding wait, walking-time weight) changes how long people are outdoors. Timing behaviour (morning departure peak, purpose-specific departure timing, work and school end times) barely changes minutes outdoors but shifts when in the day they fall, and so the UTCI experienced. Work end time (μ\* 41) acts almost entirely through temperature: a later end moves the trip home out of the afternoon heat. School end time acts the same way (μ\* 22); it matters because every child makes a school round trip and comes home in the mid-afternoon.
 
-The wait-tolerance effect is a threshold, not a gradient (Figure 8). At a tolerance of 5 minutes, below the 5.65-minute mean boarding wait, mean exposure averaged 561 °C·min and 119 minutes outdoors across runs, because most would-be riders walk instead; from 13 to 30 minutes it was nearly flat (282–312 °C·min). Its large μ\* and σ come almost entirely from steps to or from the 5-minute level.
+The top three factors are effectively tied: their μ\* values lie within 1 °C·min of each other and their bootstrap intervals overlap widely. The walking-time weight has the largest σ, so its effect depends most on the other factors. Wait tolerance has no measurable effect (μ\* 0.6, below the seed SD of 3). An agent who gives up waiting walks only when walking is faster than waiting and riding, so giving up seldom changes the trip.
 
-The equity gaps (Figure 7) are most sensitive to wait tolerance, walk share and destination distance decay, that is, to whether people ride and how far they travel. They are noisy at the baseline (Table 10), so their rankings are less certain than those for the city-wide outcomes.
+The equity gaps (Figure 7) are most sensitive to walk share, destination distance decay and walking speed, that is, to how much people walk and how far they travel. They are noisy at the baseline (Table 10), so their rankings are less certain than those for the city-wide outcomes.
 
 ## Figures
 
-![**Figure 5.** Behavioural factors ranked by their influence on mean daily exposure per person (Morris μ\*: the mean absolute change in the outcome when the factor moves two-thirds of its range, over 10 trajectories). Lines: 95% bootstrap intervals across trajectories. Arrows: ↑ raising the factor raises exposure, ↓ lowers it, ↕ mixed (|μ| < 0.8 μ\*). Dashed line: seed-to-seed SD of the outcome at the baseline (6 °C·min, 5 replicates). 3,000 agents per run.](../paper_nb02/fig5_morris_mean_exposure.svg){width=4.6in}
+![**Figure 5.** Behavioural factors ranked by their influence on mean daily exposure per person (Morris μ\*: the mean absolute change in the outcome when the factor moves two-thirds of its range, over 10 trajectories). Lines: 95% bootstrap intervals across trajectories. Arrows: ↑ raising the factor raises exposure, ↓ lowers it, ↕ mixed (|μ| < 0.8 μ\*). Dashed line: seed-to-seed SD of the outcome at the baseline (3 °C·min, 5 replicates). 3,000 agents per run.](../paper_nb02/fig5_morris_mean_exposure.svg){width=4.6in}
 
 ![**Figure 6.** Morris μ\* for the two parts of exposure: (a) minutes outdoors per person and (b) the mean UTCI experienced while outdoors (raw UTCI, no threshold). Factors in the order of Figure 5; arrows as in Figure 5, for that outcome. Dashed lines: seed-to-seed SD at the baseline.](../paper_nb02/fig6_duration_vs_temperature.svg){width=6.5in}
 
 ![**Figure 7.** Morris μ\* of each factor for each outcome, relative to the most influential factor for that outcome (1.00). The two right-hand columns are equity gaps: mean exposure of the poorest minus the richest Relative Wealth Index quintile, and of medium/high minus low informality. These are differences of group means and much noisier than the city-wide outcomes (Table 10). Share home by 20:00: share of travellers back home by the end of the simulated day.](../paper_nb02/fig7_outcome_heatmap.svg){width=6.5in}
-
-![**Figure 8.** The wait-tolerance threshold. (a) Mean daily exposure and (b) minutes outdoors per person in every Morris run, by the run's wait tolerance (the longest wait for a vehicle an agent accepts before walking instead). Points: runs (jittered horizontally); line: mean over runs at each level, all other factors varying. Dashed line: the baseline mean boarding wait (5.65 min).](../paper_nb02/fig8_wait_tolerance.svg){width=4.8in}
 
 ## Tables
 
@@ -227,18 +225,18 @@ Note. Geography (street network, heat rasters, population, amenities) and the tr
 
 | Outcome | Mean | SD | CV |
 |:---|---:|---:|---:|
-| Mean exposure (°C·min) | 311 | 6 | 1.9% |
-| Median exposure (°C·min) | 197 | 3 | 1.3% |
-| 90th-percentile exposure (°C·min) | 689 | 13 | 1.8% |
-| Minutes outdoors | 65.5 | 0.9 | 1.3% |
-| Mean UTCI while outdoors (°C) | 29.14 | 0.07 | 0.2% |
-| Share of trips using transit | 0.549 | 0.009 | 1.7% |
-| Mean exposure, walk-only trips (°C·min) | 334 | 12 | 3.7% |
-| Mean exposure, transit trips (°C·min) | 292 | 5 | 1.7% |
-| Share of exposure on the trip home | 0.734 | 0.014 | 1.9% |
-| Share home by 20:00 | 0.913 | 0.005 | 0.5% |
-| Wealth gap, poorest − richest RWI quintile (°C·min) | 64 | 34 | 53.0% |
-| Informality gap, medium/high − low (°C·min) | -28 | 14 | 51.0% |
+| Mean exposure (°C·min) | 269 | 3 | 1.1% |
+| Median exposure (°C·min) | 191 | 2 | 1.1% |
+| 90th-percentile exposure (°C·min) | 572 | 14 | 2.4% |
+| Minutes outdoors | 57.1 | 0.6 | 1.0% |
+| Mean UTCI while outdoors (°C) | 28.99 | 0.05 | 0.2% |
+| Share of trips using transit | 0.586 | 0.011 | 1.8% |
+| Mean exposure, walk-only trips (°C·min) | 279 | 6 | 2.0% |
+| Mean exposure, transit trips (°C·min) | 262 | 3 | 1.1% |
+| Share of exposure on the trip home | 0.759 | 0.012 | 1.6% |
+| Share home by 20:00 | 0.924 | 0.006 | 0.6% |
+| Wealth gap, poorest − richest RWI quintile (°C·min) | 55 | 18 | 33.1% |
+| Informality gap, medium/high − low (°C·min) | -23 | 11 | 49.3% |
 
 Table: **Table 10.** Outcomes at the baseline parameters over 5 replicate runs with different random seeds.
 
@@ -246,23 +244,23 @@ Note. 3,000 agents per run. The SD is the sampling noise of a single run and the
 
 | Rank | Factor | Dir. | μ* (95% CI) | μ | σ | μ* minutes outdoors | μ* UTCI (°C) |
 |:---|---:|---:|---:|---:|---:|---:|---:|
-| 1 | Wait tolerance before walking instead (min) | ↓ | 163 (71–289) | -163 | 181 | 32.4 | 0.39 |
-| 2 | Destination distance decay (exponent) | ↓ | 133 (79–201) | -133 | 105 | 27.2 | 0.18 |
-| 3 | Walk share vs. JICA distance curves (+- pct points) | ↑ | 103 (85–123) | 103 | 33 | 21.4 | 0.27 |
-| 4 | Walking speed, mean (m/s) | ↓ | 87 (66–109) | -87 | 37 | 18.5 | 0.13 |
-| 5 | Mean boarding wait (min) | ↑ | 71 (45–103) | 71 | 49 | 15.5 | 0.11 |
-| 6 | Walking-time weight in route choice (x riding) | ↓ | 58 (38–76) | -58 | 34 | 12.7 | 0.04 |
-| 7 | Work end time, mean (hour) | ↓ | 54 (34–76) | -54 | 37 | 3.0 | 0.56 |
-| 8 | Morning outbound departure peak (hour) | ↑ | 44 (28–62) | 44 | 31 | 0.3 | 1.03 |
-| 9 | Share of outbound trips in evening peak | ↓ | 42 (23–65) | -39 | 41 | 4.8 | 0.26 |
-| 10 | Evening outbound departure peak (hour) | ↓ | 34 (13–62) | -34 | 41 | 2.6 | 0.38 |
-| 11 | Work share of trip purposes | ↓ | 30 (21–41) | -26 | 25 | 1.9 | 0.40 |
-| 12 | School end time, mean (hour) | ↓ | 29 (22–39) | -29 | 15 | 0.5 | 0.38 |
-| 13 | Walking speed, SD between people (m/s) | ↑ | 22 (10–35) | 22 | 21 | 4.0 | 0.05 |
-| 14 | Purpose-specific departure timing (x survey tilt) | ↕ | 21 (16–26) | 15 | 19 | 3.3 | 0.66 |
-| 15 | Share of outbound trips in morning peak | ↓ | 17 (13–21) | -14 | 12 | 3.3 | 0.64 |
-| 16 | Other-purpose dwell time, median (min) | ↕ | 7 (6–9) | 3 | 8 | 1.2 | 0.16 |
-| 17 | Shopping/market dwell time, median (min) | ↕ | 6 (4–8) | 3 | 6 | 1.2 | 0.15 |
+| 1 | Walking-time weight in route choice (x riding) | ↓ | 77 (45–113) | -77 | 61 | 16.7 | 0.05 |
+| 2 | Walk share vs. JICA distance curves (+- pct points) | ↑ | 76 (66–89) | 76 | 20 | 16.4 | 0.20 |
+| 3 | Destination distance decay (exponent) | ↓ | 76 (56–98) | -76 | 36 | 16.7 | 0.11 |
+| 4 | Walking speed, mean (m/s) | ↓ | 56 (43–70) | -56 | 24 | 12.9 | 0.08 |
+| 5 | Work end time, mean (hour) | ↓ | 41 (30–52) | -41 | 18 | 1.6 | 0.59 |
+| 6 | Mean boarding wait (min) | ↑ | 40 (23–59) | 40 | 31 | 8.6 | 0.05 |
+| 7 | Evening outbound departure peak (hour) | ↓ | 30 (13–51) | -30 | 33 | 2.0 | 0.41 |
+| 8 | Share of outbound trips in evening peak | ↓ | 29 (17–41) | -24 | 28 | 2.8 | 0.27 |
+| 9 | Work share of trip purposes | ↕ | 25 (19–33) | -20 | 20 | 1.6 | 0.42 |
+| 10 | Morning outbound departure peak (hour) | ↑ | 23 (18–27) | 23 | 8 | 0.1 | 0.85 |
+| 11 | School end time, mean (hour) | ↓ | 22 (17–26) | -22 | 8 | 0.1 | 0.37 |
+| 12 | Purpose-specific departure timing (x survey tilt) | ↑ | 21 (14–28) | 20 | 14 | 2.2 | 0.75 |
+| 13 | Share of outbound trips in morning peak | ↓ | 20 (17–24) | -20 | 6 | 1.9 | 0.75 |
+| 14 | Walking speed, SD between people (m/s) | ↑ | 15 (9–21) | 15 | 11 | 3.1 | 0.03 |
+| 15 | Other-purpose dwell time, median (min) | ↕ | 7 (5–9) | 4 | 7 | 1.0 | 0.17 |
+| 16 | Shopping/market dwell time, median (min) | ↕ | 7 (5–9) | 4 | 6 | 1.0 | 0.17 |
+| 17 | Wait tolerance before walking instead (min) | ↑ | 1 (0–1) | 1 | 0 | 0.1 | 0.00 |
 
 Table: **Table 11.** Morris sensitivity indices for mean daily exposure per person (°C·min above 26 °C UTCI) and for its two parts.
 
