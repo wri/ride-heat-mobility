@@ -1,0 +1,40 @@
+1. Share of area in each ULU definition (approximate boxes)
+  Kibera                   informal  28.5%  informal+atomistic  28.5%  residential  53.9%
+  Mathare                  informal  11.7%  informal+atomistic  11.7%  residential  38.1%
+  Mukuru                   informal   3.2%  informal+atomistic   3.6%  residential  51.0%
+  Korogocho                informal  18.3%  informal+atomistic  18.3%  residential  40.3%
+  Karen (planned suburb)   informal   0.5%  informal+atomistic   1.1%  residential   9.0%
+
+2. Against IDEAMAPS cells
+  -- ULU informal  (whole raster: 127 km2)
+        mean_share  any_   maj  where_%
+cls                                    
+low            5.5  14.5   5.1     41.4
+medium        10.2  30.4   8.9     54.1
+high          40.8  75.0  40.7      4.5
+     share of IDEAMAPS-high area that ULU calls informal: 41%; share of ULU informal area (inside IDEAMAPS extent) in high cells: 4.5%
+     Spearman vs IDEAMAPS class: all cells 0.21; as share of residential area (cells >5% residential) -0.02
+  -- ULU informal+atomistic  (whole raster: 140 km2)
+        mean_share  any_   maj  where_%
+cls                                    
+low            6.0  17.8   5.3     39.6
+medium        12.0  44.4   9.6     56.3
+high          41.4  75.7  41.3      4.1
+     share of IDEAMAPS-high area that ULU calls informal+atomistic: 41%; share of ULU informal+atomistic area (inside IDEAMAPS extent) in high cells: 4.1%
+     Spearman vs IDEAMAPS class: all cells 0.29; as share of residential area (cells >5% residential) 0.04
+
+3. Mean daily exposure (degC.min) by home group, current run
+  IDEAMAPS low                     8,184   277 [271-283]  median 207
+  IDEAMAPS medium                  9,764   256 [250-261]  median 190
+  IDEAMAPS high                    1,539   196 [184-208]  median 124
+  IDEAMAPS no class             513   607 [558-660]  median 379
+  ULU informal           none within 100 m  10,800   286 [281-292]  median 208
+  ULU informal           1-49%               5,873   251 [244-258]  median 180
+  ULU informal           >=50%               3,327   244 [235-253]  median 175
+     ULU informal >=50% homes that IDEAMAPS calls high: 18%; IDEAMAPS-high homes ULU informal >=50%: 38%
+     within IDEAMAPS extent: >=50% 240 vs none 275
+  ULU informal+atomistic none within 100 m   9,919   285 [279-290]  median 206
+  ULU informal+atomistic 1-49%               6,656   258 [252-265]  median 188
+  ULU informal+atomistic >=50%               3,425   244 [235-253]  median 176
+     ULU informal+atomistic >=50% homes that IDEAMAPS calls high: 17%; IDEAMAPS-high homes ULU informal+atomistic >=50%: 38%
+     within IDEAMAPS extent: >=50% 240 vs none 273
