@@ -40,6 +40,9 @@ The bimodal profile sets when agents leave home on their **outbound** trip: two 
 | Earlier all-journey profile (target) | 43% | 9% | 48% |
 | Outbound, refit profile | 61% | 10% | 29% |
 | Outbound + return, refit profile | 36% | 13% | 52% |
+| **Outbound, main run (children make only school trips, leaving before 08:00)** | **72%** | **8%** | **20%** |
+
+The refit was done before children were restricted to school trips, so its rows describe a population whose purpose mix doesn't depend on age. With demographics enabled, as in the main run, 42% of agents make school trips, and every child's school trip leaves before 08:00. That moves departures into the morning: in the 20,000-agent main run (seed 42), 72% of outbound trips leave 06–09 and 50% leave 07:00–08:00 (`artifacts/paper_nb01/fig_departure_times.png`, made by `artifacts/paper_nb01/departure_histogram.py`, which replays the run's departure draws). The refit has not been redone for the school-only children.
 
 Run: `python -m nairobi_heat_abm.departure_fit --off-peak 0.2` (writes `outputs/departure_fit/`: `fit.json`, `hourly_shares.csv`).
 
@@ -51,7 +54,7 @@ The profile above sets the overall shape of departures across the day. Each trip
 
 P(tick | purpose) ∝ P_profile(tick) × tilt[purpose][band of tick]
 
-where `departure_purpose_tilt` holds one multiplier per purpose per time band, and `departure_tilt_band_edges_h` gives the band edges in local clock hours. A multiplier of 1.0 means the purpose departs in that band as often as the profile alone would predict. Outside every band, or for a purpose missing from the dict, the multiplier is 1.0, so setting `departure_purpose_tilt = {}` gives departure times that don't depend on purpose, as in earlier versions of the model. Purpose shares themselves are still set by `purpose_weights`; the tilt only moves each purpose's trips around the day. As a side effect, the overall outbound profile is no longer exactly the bimodal shape: with the default weights, about 40% of outbound trips leave between 07:00 and 08:00.
+where `departure_purpose_tilt` holds one multiplier per purpose per time band, and `departure_tilt_band_edges_h` gives the band edges in local clock hours. A multiplier of 1.0 means the purpose departs in that band as often as the profile alone would predict. Outside every band, or for a purpose missing from the dict, the multiplier is 1.0, so setting `departure_purpose_tilt = {}` gives departure times that don't depend on purpose, as in earlier versions of the model. Purpose shares themselves are still set by `purpose_weights`; the tilt only moves each purpose's trips around the day. As a side effect, the overall outbound profile is no longer exactly the bimodal shape: with the default weights, about 40% of outbound trips leave between 07:00 and 08:00, and about 50% in the main run, where children make only school trips and leave before 08:00.
 
 | Band (local) | 06–09 | 09–11 | 11–13 | 13–15 | 15–17 | 17–20 |
 |---|---|---|---|---|---|---|
@@ -68,7 +71,18 @@ Resulting share of each purpose's outbound trips by departure time, with the def
 | 09–15 | 9% | 7% | 10% | 13% | 17% |
 | 15–20 | 21% | 14% | 21% | 43% | 52% |
 
-Counting trips home as well, departures by purpose are: work 40% / 4% / 56% (06–09 / 09–15 / 15–20), school 35% / 12% / 54%, market 35% / 22% / 44%, other 24% / 23% / 52%.
+In the main run (20,000 agents, seed 42), where children make only school trips and leave before 08:00:
+
+| Departure | All | work | school: children | school: 15+ | market | other |
+|---|---|---|---|---|---|---|
+| 06–09 | 72% | 80% | 100% | 68% | 44% | 33% |
+| 09–15 | 8% | 7% | 0% | 10% | 13% | 16% |
+| 15–20 | 20% | 14% | 0% | 21% | 43% | 51% |
+| Trips | 20,000 | 5,787 | 5,424 | 2,906 | 3,729 | 2,154 |
+
+Work, market, other and youth/adult school trips match the table above; the shift comes from children's school trips, which make up 27% of all trips.
+
+Counting trips home as well (from the refit, before children were limited to school trips; not yet recomputed for the main run), departures by purpose are: work 40% / 4% / 56% (06–09 / 09–15 / 15–20), school 35% / 12% / 54%, market 35% / 22% / 44%, other 24% / 23% / 52%.
 
 **Calibration.** The defaults come from the WRI Nairobi rider survey (see [Transit wait time](#calibration-from-the-wri-rider-survey) and [References](references.md)), Q9 *"What is the Purpose of this Journey?"*. The number of interviews per hour reflects when interviewers were working, not when people travel, so the survey cannot give P(hour). The purpose mix within an hour does not depend on interviewer schedules, so it does give P(purpose | hour). By Bayes' rule, P(hour | purpose) ∝ P(hour) × P(purpose | hour). The model's own profile supplies P(hour), and the survey supplies the second factor, expressed relative to the overall purpose share: tilt = P(purpose | band) / P(purpose).
 
@@ -152,7 +166,7 @@ Whether a trip is walked the whole way depends on its length and purpose. Each a
 
 **Why a 15 km cap.** JICA Figure A4.5.2 plots the observed walk share in about 0.5 km bins from 0 to 30 km. The curves fit well up to 10–12 km, but beyond about 15 km the survey shows almost no walk trips (work: a few up to ~17 km; school: none from ~14.5 km; others: scattered points up to ~19 km), while the fitted log curves stay positive to 22.5 km (work), 22 km (school) and 29 km (others): at 20 km they still give 1.5%, 1.8% and 5.7%. Because the trip home reuses the outbound walk draw, an uncapped 18 km walk became 36 km in a day. `walk_max_km` sets P<sub>walk</sub> to zero beyond 15 km, one cap for all purposes (added 2026-11-08). Trips beyond it can still end up walked if transit is unavailable.
 
-**Check.** Tatah et al. (2023), from the same 2013 survey, report walking as the main mode of 43% of Nairobi trips. At the calibrated β and walking weight, the model walks 43% of trips the whole way (see [Calibration](#calibration-of-β-and-the-walking-time-weight)). The curves set the walk share *given* trip length, so this checks the trip-length distribution (β) against an independent source.
+**Check.** Tatah et al. (2023), from the same 2013 survey, report walking as the main mode of 42% of Nairobi trips (their abstract and Table 3; the 43% in their §3.2.1 is a different statistic, the walk-only share of trips that include any walking). At the calibrated β and walking weight, the model walked 43% of trips the whole way in the calibration runs, and 42% in the main run after the 2026-11-08 routing fixes (see [Calibration](#calibration-of-β-and-the-walking-time-weight)). The curves set the walk share *given* trip length, so this checks the trip-length distribution (β) against an independent source.
 
 **Limitations.**
 - **Car trips are not modelled.** JICA's walk shares are of all trips, including by car (2013 household car ownership 29%). In the model, everyone who doesn't walk is offered transit, so the motorised share is all matatu/bus.
@@ -180,7 +194,7 @@ Each agent's destination is drawn from the OSM amenities of its trip purpose, we
 |---|---|---|
 | `destination_distance_decay` (β) | 1.5 | WRI rider survey Q11, jointly with `walk_time_weight` (below) |
 
-Because the number of candidate destinations at distance *d* grows roughly in proportion to *d*, β = 1 (the earlier, uncalibrated rule) makes trip lengths almost uniform up to the edge of the study area; larger β favours nearby destinations. The default of 1.5 matches the median time on board reported by bus and matatu riders, and gives the 43% walk share of the 2013 JICA survey. β is calibrated with the walking-time weight; see [Calibration of β and the walking-time weight](#calibration-of-β-and-the-walking-time-weight).
+Because the number of candidate destinations at distance *d* grows roughly in proportion to *d*, β = 1 (the earlier, uncalibrated rule) makes trip lengths almost uniform up to the edge of the study area; larger β favours nearby destinations. The default of 1.5 matches the median time on board reported by bus and matatu riders, and gives a walk share close to the 42% walking main-mode share of the 2013 JICA survey. β is calibrated with the walking-time weight; see [Calibration of β and the walking-time weight](#calibration-of-β-and-the-walking-time-weight).
 
 ## Walk speed
 
@@ -229,7 +243,7 @@ The calibration was run with the JICA distance-based walk choice ([Mode split](#
 - **Walking-time weight: 5.0.** The median access walk falls from 21 min (weight 1) to 9.5 (3), 8.8 (4) and 8.5 (5), then levels off (8.2 at 6). It never reaches the survey's 7.6 minutes, because the median home is itself 7 minutes from a boardable stop. The weight is set where the Q8 fit stops improving by more than simulation noise (log-likelihood within 10 of the best; weight 5 vs 6 differ by at most 2).
 - **β: 1.5.** At weight 5, the β at which the model's median time on board equals the survey's 22.7 minutes (23.9 at β = 1.4, 21.4 at 1.6). The medians carry about ±1 minute of simulation noise, about ±0.1 in β.
 
-**Independent check: walk share.** Not fitted, but at the calibrated values 43% of trips are walked the whole way (40% at β = 1.4, 46% at 1.6), matching the 43% walking main-mode share that Tatah et al. (2023) report from the same 2013 survey JICA's curves come from. Travellers spend a mean of about 34 minutes outdoors (median walk-only trip 18 minutes).
+**Independent check: walk share.** Not fitted, but at the calibrated values 43% of trips are walked the whole way (40% at β = 1.4, 46% at 1.6), close to the 42% walking main-mode share that Tatah et al. (2023) report from the same 2013 survey JICA's curves come from. Travellers spend a mean of about 34 minutes outdoors (median walk-only trip 18 minutes).
 
 Results are in `outputs/calibration_jica/` (`calibration_grid.csv`, `calibration_bins.csv`, `survey_bins.csv`, `calibration_fit.json`). The grid run was stopped by low system memory with 17 of 20 cells done; the missing three (weight 6, β 1.6–1.8) don't affect either rule. The superseded fixed-share calibration is in `outputs/calibration/`.
 

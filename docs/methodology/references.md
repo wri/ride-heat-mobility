@@ -17,7 +17,7 @@ This list covers all sources cited across the methodology notes. Entries marked 
 <!-- TODO: add full citation for the WRI rider survey (survey team, fieldwork dates, sampling design) -->
 <!-- TODO: add Salon & Aligula 2012 full citation once confirmed -->
 <!-- TODO: add Salon & Gulyani 2019 full citation once confirmed -->
-**JICA (2014).** The Project on Integrated Urban Development Master Plan for the City of Nairobi in the Republic of Kenya: Final Report, Appendix 4 (demand forecast; walk split model, §A4.5.3). Nippon Koei Co., Ltd., IDCJ Inc., EJEC Inc. for the Japan International Cooperation Agency and Nairobi City County. Based on the 2013 Nairobi household person-trip survey. **[in articles/ as jica_appendix3_2012.pdf]**
+**Nairobi City County & Japan International Cooperation Agency [JICA] (2014).** *The Project on Integrated Urban Development Master Plan for the City of Nairobi in the Republic of Kenya. Final Report, Part III: Appendix* (Report EI JR 14-112). Nippon Koei Co., Ltd., IDCJ Inc., & EJEC Inc. https://openjicareport.jica.go.jp/pdf/12184065.pdf. Walk split model: Appendix 4, §A4.5.3, pp. 4-16 to 4-18 (interzonal curves, Figure A4.5.2, p. 4-17; intrazonal shares, Tables A4.5.1–A4.5.2, p. 4-18). Fitted to the 2013 Nairobi household person-trip survey. Cited in the text as JICA (2014). **[in articles/ as jica_appendix3_2012.pdf; the file is the whole Part III volume, dated December 2014]**
 <!-- TODO: add Vanderschuren & Jennings 2017 full citation -->
 <!-- TODO: add World Bank 2024 full citation -->
 
@@ -33,7 +33,22 @@ This list covers all sources cited across the methodology notes. Entries marked 
 
 <!-- TODO: cite physiological basis for °C·min metric -->
 <!-- TODO: cite WBGT / PET literature if discussed in heat-exposure-metric.md -->
-<!-- TODO: cite Nairobi urban heat island / temperature trend studies -->
+**University of Cape Town [UCT] (2017).** *Nairobi Climate Profile: Full Technical Version.* Climate System Analysis Group, University of Cape Town, November 2017. https://assets.publishing.service.gov.uk/media/5f89cf25d3bf7f49ae830cd7/Nairobi_climate_profile_full_technical_v2_0.pdf (1981–2010 seasonal cycle; 1979–2015 warming trends; CMIP5 projections.)
+
+**Makokha, G.L., & Shisanya, C.A. (2010).** Trends in mean annual minimum and maximum near surface temperature in Nairobi City, Kenya. *Advances in Meteorology, 2010*, 676041. https://doi.org/10.1155/2010/676041
+
+**Ongoma, V., Muange, P.K., & Shilenje, Z.W. (2016).** Potential effects of urbanization on urban thermal comfort, a case study of Nairobi City, Kenya: A review. *Geographica Pannonica, 20*(1), 19–31. https://doi.org/10.18421/GP20.01-03
+
+**Scott, A.A., Misiani, H., Okoth, J., Jordan, A., Gohlke, J., Ouma, G., Arrighi, J., Zaitchik, B.F., Jjemba, E., Verjee, S., & Waugh, D.W. (2017).** Temperature and heat in informal settlements in Nairobi. *PLOS ONE, 12*(11), e0187300. https://doi.org/10.1371/journal.pone.0187300
+
+<!-- TODO: replace Ouma (2024, The Conversation) on the February 2024 heat with Kenya Meteorological Department data -->
+
+## Population and informality (context)
+
+**Kenya National Bureau of Statistics [KNBS] (2019).** *2019 Kenya Population and Housing Census, Volume I: Population by County and Sub-County.* Nairobi: KNBS. (Nairobi County 4,397,073; figure taken from news reports, check against the table.)
+
+<!-- TODO: primary source for "50–60% of Nairobi residents live in informal settlements on ~5–6% of residential land" (UN-Habitat Nairobi Urban Profile and KIPPRA repeat it); source for WorldPop undercounting dense informal settlements -->
+
 
 ---
 
@@ -61,9 +76,29 @@ This list covers all sources cited across the methodology notes. Entries marked 
 
 ---
 
+## Sensitivity analysis
+
+**Morris, M.D. (1991).** Factorial sampling plans for preliminary computational experiments. *Technometrics, 33*(2), 161–174. https://doi.org/10.2307/1269043 (Elementary effects; one-factor-at-a-time trajectories on a p-level grid.)
+
+**Campolongo, F., Cariboni, J., & Saltelli, A. (2007).** An effective screening design for sensitivity analysis of large models. *Environmental Modelling & Software, 22*(10), 1509–1518. https://doi.org/10.1016/j.envsoft.2006.10.004 (μ*, the mean absolute elementary effect, used for ranking.)
+
+**Saltelli, A., Ratto, M., Andres, T., Campolongo, F., Cariboni, J., Gatelli, D., Saisana, M., & Tarantola, S. (2008).** *Global Sensitivity Analysis: The Primer.* Wiley. https://doi.org/10.1002/9780470725184 (Ch. 3: the elementary effects method; 4-level grid, Δ = p / (2(p − 1)).)
+
+**ten Broeke, G., van Voorn, G., & Ligtenberg, A. (2016).** Which sensitivity analysis method should I use for my agent-based model? *Journal of Artificial Societies and Social Simulation, 19*(1), 5. https://doi.org/10.18564/jasss.2857 (Sensitivity analysis for agent-based models.)
+
+<!-- DOIs and page ranges from memory; check before submission -->
+
+---
+
 ## Home-area context (wealth, informality, wards)
 
-**Hafner, S., Zhao, Q., Abascal, A., Comerio de Paulo, M., Tregonning, G., Middleton, A., Shonowo, A., Kuffer, M., Engstrom, R., Thomson, D. R., Onyambu, F. C., Kabaria, C., Elias, P., Odulana, O., Alugbin, B., Baruwa, K., & Porto de Albuquerque, J. (2026).** Morphological Informality Modelled Dataset in Nairobi, Kenya (Version v2) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.18313572. IDEAMAPS Data Ecosystem project. CC BY-NC 4.0. Method described in doi:10.5194/isprs-archives-XLVIII-M-7-2025-221-2025.
+**Hafner, S., Zhao, Q., Abascal, A., Comerio de Paulo, M., Tregonning, G., Middleton, A., Shonowo, A., Kuffer, M., Engstrom, R., Thomson, D. R., Onyambu, F. C., Kabaria, C., Elias, P., Odulana, O., Alugbin, B., Baruwa, K., & Porto de Albuquerque, J. (2026).** Morphological Informality Modelled Dataset in Nairobi, Kenya (Version v2) [Data set]. Zenodo. https://doi.org/10.5281/zenodo.18313572. IDEAMAPS Data Ecosystem project. CC BY-NC 4.0. Published 20 January 2026; code at https://github.com/urbanbigdatacentre/ideamaps-models. (Dataset; cite together with the method paper below.)
+
+**Hafner, S., et al. (2025).** Towards an indicator-based morphological informality model for Sub-Saharan Africa using open building footprint and road data. *Int. Arch. Photogramm. Remote Sens. Spatial Inf. Sci., XLVIII-M-7-2025*, 221–228 (44th EARSeL Symposium, Prague). https://doi.org/10.5194/isprs-archives-XLVIII-M-7-2025-221-2025. Method behind the v2 dataset (the Zenodo record says the dataset "is described by" this paper). Validated against community-sourced labels; overall accuracy 48% for Nairobi, 60% for Lagos; the medium class is weakest, especially in Nairobi. Full author list to fill in from the paper.
+
+**Hafner, S., et al. (2025).** Mapping indicators for morphological informality in Nairobi, Kenya using satellite imagery. *2025 Joint Urban Remote Sensing Event (JURSE)*, Tunis. IEEE. https://doi.org/10.1109/JURSE60372.2025.11076042. Earlier, imagery-based version of the Nairobi indicators (F1 80.9 irregular layout, 78.7 small dense structures).
+
+**Abascal, Á., et al. (2022).** "Domains of Deprivation Framework" for mapping slums, informal settlements, and other deprived areas in LMICs to improve urban planning and policy: A scoping review. *Computers, Environment and Urban Systems, 93*, 101770. https://doi.org/10.1016/j.compenvurbsys.2022.101770. Peer-reviewed framework that IDEAMAPS informality maps operationalise. (Author list to confirm.)
 
 **Chi, G., Fang, H., Chatterjee, S., & Blumenstock, J. E. (2022).** Microestimates of wealth for all low- and middle-income countries. *Proceedings of the National Academy of Sciences*, 119(3), e2113658119. (Relative Wealth Index; data: Data for Good at Meta, CC BY-NC 4.0.)
 

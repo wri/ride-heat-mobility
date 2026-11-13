@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 990 930" width="990" height="930" role="img" aria-label="Flowchart of agent travel decisions">
+<style>
+.bg{fill:#ffffff}
+.term,.proc{fill:#ffffff;stroke:#1f2124;stroke-width:1.5}
+.dec{fill:#f6f5f2;stroke:#1f2124;stroke-width:1.5}
+.walk{fill:#fbe9df;stroke:#b4471b}.ride{fill:#e2eef7;stroke:#22608f}.none{fill:#ebeae7;stroke:#6b6f75}
+.ln{fill:none;stroke:#5f646b;stroke-width:1.5}.ln.walk{fill:none;stroke:#b4471b}
+.dot{fill:#b4471b}.ahp{fill:#5f646b}
+.t{font:600 16px Arial,Helvetica,sans-serif;fill:#1f2124}
+.s{font:400 13.5px Consolas,"Courier New",monospace;fill:#4a4f56}
+.note{font:400 12.5px Arial,Helvetica,sans-serif;fill:#4a4f56}
+.n{font:500 14px Consolas,"Courier New",monospace;fill:#7a7f86}
+.lab{font:500 13px Consolas,"Courier New",monospace;fill:#4a4f56}
+.lg{font:400 14.5px Arial,Helvetica,sans-serif;fill:#4a4f56}
+.lgbox{fill:none;stroke:#d6d3cd;stroke-width:1}
+</style>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="ahp"/></marker></defs>
+<rect x="0" y="0" width="990" height="930" class="bg"/>
+<rect x="26" y="614" width="430" height="120" rx="4" class="lgbox"/>
+<rect x="185.0" y="16" width="230" height="48" rx="24" class="term"/><text x="300" y="40" class="t" text-anchor="middle" dominant-baseline="central">Start: agent created</text>
+<rect x="150.0" y="92.0" width="300" height="56" rx="3" class="proc"/><text x="300" y="110" class="t" text-anchor="middle" dominant-baseline="central">1 · Set up the agent</text><text x="300" y="130" class="s" text-anchor="middle" dominant-baseline="central">home · age &amp; gender · purpose</text>
+<path d="M300,64 L300,92" class="ln" marker-end="url(#ah)"/>
+<polygon points="300,190.0 425.0,245 300,300.0 175.0,245" class="dec"/><text x="300" y="235" class="t" text-anchor="middle" dominant-baseline="central">Trip</text><text x="300" y="255" class="t" text-anchor="middle" dominant-baseline="central">today?</text><text x="266" y="202.0" class="n" text-anchor="end">2</text>
+<path d="M300,148 L300,190" class="ln" marker-end="url(#ah)"/>
+<rect x="10.0" y="221" width="130" height="48" rx="24" class="term none"/><text x="75" y="235" class="t" text-anchor="middle" dominant-baseline="central">Stays home</text><text x="75" y="255" class="s" text-anchor="middle" dominant-baseline="central">no exposure</text>
+<path d="M175.0,245 L140,245" class="ln" marker-end="url(#ah)"/><text x="158" y="237" class="lab" text-anchor="middle">NO</text>
+<rect x="140.0" y="342.0" width="320" height="56" rx="3" class="proc"/><text x="300" y="360" class="t" text-anchor="middle" dominant-baseline="central">3 · Plan the trip</text><text x="300" y="380" class="s" text-anchor="middle" dominant-baseline="central">departure time · destination · speed</text>
+<path d="M300,300 L300,342" class="ln" marker-end="url(#ah)"/><text x="310" y="320" class="lab" text-anchor="start">YES</text>
+<polygon points="300,440.0 425.0,495 300,550.0 175.0,495" class="dec"/><text x="300" y="485" class="t" text-anchor="middle" dominant-baseline="central">Walking path to</text><text x="300" y="505" class="t" text-anchor="middle" dominant-baseline="central">destination?</text><text x="266" y="452.0" class="n" text-anchor="end">4</text>
+<path d="M300,398 L300,440" class="ln" marker-end="url(#ah)"/>
+<rect x="10.0" y="471" width="130" height="48" rx="24" class="term none"/><text x="75" y="485" class="t" text-anchor="middle" dominant-baseline="central">Dropped</text><text x="75" y="505" class="s" text-anchor="middle" dominant-baseline="central">no route</text>
+<path d="M175.0,495 L140,495" class="ln" marker-end="url(#ah)"/><text x="158" y="487" class="lab" text-anchor="middle">NO</text>
+<path d="M425.0,495 L470,495 L470,85 L515.0,85" class="ln" marker-end="url(#ah)"/><text x="433.0" y="487" class="lab" text-anchor="start">YES</text>
+<polygon points="640,30.0 765.0,85 640,140.0 515.0,85" class="dec"/><text x="640" y="75" class="t" text-anchor="middle" dominant-baseline="central">Walk the</text><text x="640" y="95" class="t" text-anchor="middle" dominant-baseline="central">whole way?</text><text x="606" y="42.0" class="n" text-anchor="end">5</text>
+<path d="M765.0,85 L870,85" class="ln walk"/><text x="775.0" y="77" class="lab" text-anchor="start">YES</text><text x="650" y="159.0" class="lab" text-anchor="start">NO</text>
+<polygon points="640,170.0 765.0,225 640,280.0 515.0,225" class="dec"/><text x="640" y="215" class="t" text-anchor="middle" dominant-baseline="central">Transit running in</text><text x="640" y="235" class="t" text-anchor="middle" dominant-baseline="central">departure band?</text><text x="606" y="182.0" class="n" text-anchor="end">6</text>
+<path d="M640,140.0 L640,170.0" class="ln" marker-end="url(#ah)"/>
+<path d="M765.0,225 L870,225" class="ln walk"/><text x="775.0" y="217" class="lab" text-anchor="start">NO</text><circle cx="870" cy="225" r="4.5" class="dot"/><text x="650" y="299.0" class="lab" text-anchor="start">YES</text>
+<polygon points="640,310.0 765.0,365 640,420.0 515.0,365" class="dec"/><text x="640" y="355" class="t" text-anchor="middle" dominant-baseline="central">Cheapest route</text><text x="640" y="375" class="t" text-anchor="middle" dominant-baseline="central">boards a vehicle?</text><text x="606" y="322.0" class="n" text-anchor="end">7</text>
+<path d="M640,280.0 L640,310.0" class="ln" marker-end="url(#ah)"/>
+<path d="M765.0,365 L870,365" class="ln walk"/><text x="775.0" y="357" class="lab" text-anchor="start">NO</text><circle cx="870" cy="365" r="4.5" class="dot"/><text x="650" y="439.0" class="lab" text-anchor="start">YES</text>
+<polygon points="640,450.0 765.0,505 640,560.0 515.0,505" class="dec"/><text x="640" y="495" class="t" text-anchor="middle" dominant-baseline="central">First stop served</text><text x="640" y="515" class="t" text-anchor="middle" dominant-baseline="central">at departure time?</text><text x="606" y="462.0" class="n" text-anchor="end">8</text>
+<path d="M640,420.0 L640,450.0" class="ln" marker-end="url(#ah)"/>
+<path d="M765.0,505 L870,505" class="ln walk"/><text x="775.0" y="497" class="lab" text-anchor="start">NO</text><circle cx="870" cy="505" r="4.5" class="dot"/><text x="650" y="579.0" class="lab" text-anchor="start">YES</text>
+<polygon points="640,590.0 765.0,645 640,700.0 515.0,645" class="dec"/><text x="640" y="635" class="t" text-anchor="middle" dominant-baseline="central">Waits for the</text><text x="640" y="655" class="t" text-anchor="middle" dominant-baseline="central">vehicle?</text><text x="606" y="602.0" class="n" text-anchor="end">9</text>
+<text x="510" y="582" class="note" text-anchor="end">No only if the wait exceeds tolerance</text><text x="510" y="598" class="note" text-anchor="end">and walking is no slower than wait + ride</text>
+<path d="M640,560.0 L640,590.0" class="ln" marker-end="url(#ah)"/>
+<path d="M765.0,645 L870,645" class="ln walk"/><text x="775.0" y="637" class="lab" text-anchor="start">NO</text><circle cx="870" cy="645" r="4.5" class="dot"/><text x="650" y="719.0" class="lab" text-anchor="start">YES</text>
+<path d="M870,85 L870,732" class="ln walk" marker-end="url(#ah)"/>
+<rect x="765.0" y="732.0" width="210" height="56" rx="3" class="proc walk"/><text x="870" y="750" class="t" text-anchor="middle" dominant-baseline="central">Walks the whole way</text><text x="870" y="770" class="s" text-anchor="middle" dominant-baseline="central">shortest street path</text>
+<rect x="524.0" y="732.0" width="232" height="56" rx="3" class="proc ride"/><text x="640" y="750" class="t" text-anchor="middle" dominant-baseline="central">Rides transit</text><text x="640" y="770" class="s" text-anchor="middle" dominant-baseline="central">walk · wait · ride · walk</text>
+<path d="M640,700 L640,732" class="ln" marker-end="url(#ah)"/>
+<rect x="455.0" y="842.0" width="370" height="56" rx="3" class="proc"/><text x="640" y="860" class="t" text-anchor="middle" dominant-baseline="central">10 · Move every 60 s tick</text><text x="640" y="880" class="s" text-anchor="middle" dominant-baseline="central">add UTCI °C above 26 °C per outdoor minute</text>
+<path d="M640,788 L640,842" class="ln" marker-end="url(#ah)"/>
+<path d="M870,788 L870,870 L825,870" class="ln" marker-end="url(#ah)"/>
+<rect x="175.0" y="846" width="250" height="48" rx="24" class="term"/><text x="300" y="870" class="t" text-anchor="middle" dominant-baseline="central">End: arrives at destination</text>
+<path d="M455,870 L425,870" class="ln" marker-end="url(#ah)"/>
+<rect x="40" y="630" width="30" height="20" rx="10" class="term"/><text x="80" y="640" class="lg" dominant-baseline="central">Start / end</text>
+<rect x="40" y="664" width="30" height="20" rx="2" class="proc"/><text x="80" y="674" class="lg" dominant-baseline="central">Process</text>
+<polygon points="55,698 70,708 55,718 40,708" class="dec"/><text x="80" y="708" class="lg" dominant-baseline="central">Decision</text>
+<rect x="245" y="630" width="30" height="20" rx="2" class="proc walk"/><text x="285" y="640" class="lg" dominant-baseline="central">Outdoors: exposed</text>
+<rect x="245" y="664" width="30" height="20" rx="2" class="proc ride"/><text x="285" y="674" class="lg" dominant-baseline="central">In vehicle: not exposed</text>
+<rect x="245" y="698" width="30" height="20" rx="10" class="term none"/><text x="285" y="708" class="lg" dominant-baseline="central">No trip</text>
+</svg>

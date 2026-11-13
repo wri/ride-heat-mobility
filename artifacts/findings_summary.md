@@ -11,7 +11,7 @@ batch rerun with the two routing fixes below.
   density. Each makes one round trip: home → destination (work, school, market or other) → stay → home.
 - Each trip is walked the whole way or ridden by matatu/bus. Walk shares follow JICA 2014 Nairobi distance curves;
   destination choice (distance decay exponent 1.5) and route choice (walking time weighted 5× riding time) are
-  calibrated to the WRI Nairobi rider survey (2023). The resulting 43% walk share matches Tatah et al. (2023).
+  calibrated to the WRI Nairobi rider survey (2023). The resulting 42% walk share matches the 42% walking main-mode share of the 2013 JICA household survey (Tatah et al. 2023).
 - Age group and sex are drawn from WorldPop at each home. Age sets two rules, both for children (0–14): they make
   only school trips, and they leave for school before 08:00. Sex sets none. Everyone over 14 shares the same
   purpose mix (work 40%, school 20%, market 25%, other 15%), and mode choice, walking speed and waiting are the

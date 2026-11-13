@@ -308,24 +308,31 @@ scalebar(axes[0], loc=(0.72, 0.06))
 save(fig, "fig2_segment_maps")
 
 # ---- Figure 3: (a) ward map, (b) IDEAMAPS morphological informality ---------------------------
-fig, (ax, axb) = plt.subplots(1, 2, figsize=(DOUBLE, 3.25), gridspec_kw={"wspace": 0.04})
-low_n = wards_m[~(wards_m["n"] >= MIN_WARD_AGENTS)]
-low_n.plot(ax=ax, facecolor="#f3f2ef", edgecolor="#c3c2b7", lw=0.3, hatch="////", rasterized=True)
-wards_m[wards_m["n"] >= MIN_WARD_AGENTS].plot(ax=ax, column="mean", cmap=HEAT, vmin=0, vmax=700,
-                                              edgecolor="white", lw=0.3, rasterized=True)
-map_axes(ax, frame)
-add_places(ax, wards_m, fontsize=5.8)
-sm = mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(0, 700), cmap=HEAT)
-cb = fig.colorbar(sm, ax=ax, orientation="horizontal", fraction=0.05, pad=0.02, aspect=30, extend="max")
-cb.set_label("Mean daily exposure per resident (°C·min)", fontsize=7); cb.outline.set_linewidth(0.4)
-cb.ax.tick_params(labelsize=6.5, width=0.5)
-scalebar(ax)
-ax.legend(handles=[mpl.patches.Patch(facecolor="#f3f2ef", edgecolor="#c3c2b7", hatch="////", lw=0.3,
-                                     label=f"< {MIN_WARD_AGENTS} agents")],
-          loc="upper left", fontsize=6.5, borderaxespad=0.3, frameon=True, facecolor="white", edgecolor="none", framealpha=0.9)
-ax.set_title("Mean daily exposure per resident, by home ward", fontsize=7.5, loc="left", pad=3)
+# Each panel is drawn by a function so it can also be saved as a figure of its own
+# (fig_ward_exposure_map, fig_informality_map).
+WARD_SM = mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(0, 700), cmap=HEAT)
 
-# (b) IDEAMAPS morphological informality (Hafner et al. 2026, CC BY-NC 4.0), 100 m cells.
+
+def draw_ward_exposure(fig, ax, fs: float = 1.0, title: bool = True) -> None:
+    low_n = wards_m[~(wards_m["n"] >= MIN_WARD_AGENTS)]
+    low_n.plot(ax=ax, facecolor="#f3f2ef", edgecolor="#c3c2b7", lw=0.3, hatch="////", rasterized=True)
+    wards_m[wards_m["n"] >= MIN_WARD_AGENTS].plot(ax=ax, column="mean", cmap=HEAT, vmin=0, vmax=700,
+                                                  edgecolor="white", lw=0.3, rasterized=True)
+    map_axes(ax, frame)
+    add_places(ax, wards_m, fontsize=5.8 * fs)
+    cb = fig.colorbar(WARD_SM, ax=ax, orientation="horizontal", fraction=0.05, pad=0.02, aspect=30, extend="max")
+    cb.set_label("Mean daily exposure per resident (°C·min)", fontsize=7 * fs); cb.outline.set_linewidth(0.4)
+    cb.ax.tick_params(labelsize=6.5 * fs, width=0.5)
+    scalebar(ax)
+    ax.legend(handles=[mpl.patches.Patch(facecolor="#f3f2ef", edgecolor="#c3c2b7", hatch="////", lw=0.3,
+                                         label=f"< {MIN_WARD_AGENTS} agents")],
+              loc="upper left", fontsize=6.5 * fs, borderaxespad=0.3, frameon=True, facecolor="white",
+              edgecolor="none", framealpha=0.9)
+    if title:
+        ax.set_title("Mean daily exposure per resident, by home ward", fontsize=7.5, loc="left", pad=3)
+
+
+# IDEAMAPS morphological informality (Hafner et al. 2025; 2026, CC BY-NC 4.0), 100 m cells.
 # Ordinal one-hue scale, distinct from the exposure colours so the two maps aren't read as one measure.
 INFORMALITY = {0: ("Low", "#e9e7f3"), 1: ("Medium", "#a49ad1"), 2: ("High", "#3d2c84")}
 idea = pd.read_csv(ROOT / yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))["paths"]["ses"]["informality"])
@@ -336,23 +343,43 @@ cells = gpd.GeoDataFrame(
 ).to_crs(CRS_M)
 cells = gpd.clip(cells, frame)
 covered = cells.geometry.union_all()
-gpd.GeoSeries([frame.geometry.iloc[0].difference(covered)], crs=CRS_M).plot(
-    ax=axb, facecolor="#f3f2ef", edgecolor="#c3c2b7", lw=0, hatch="////", rasterized=True)
-for k, (label, colour) in INFORMALITY.items():
-    cells[cells["cls"] == k].plot(ax=axb, facecolor=colour, edgecolor="none", rasterized=True)
-wards_m.boundary.plot(ax=axb, color="white", lw=0.3, rasterized=True)
-map_axes(axb, frame)
-add_places(axb, wards_m, fontsize=5.8)
-cb_pad = fig.colorbar(sm, ax=axb, orientation="horizontal", fraction=0.05, pad=0.02, aspect=30)
-cb_pad.ax.set_visible(False)  # same map height as panel (a)
-handles = [mpl.patches.Patch(facecolor=c, edgecolor="none", label=l) for l, c in INFORMALITY.values()]
-handles.append(mpl.patches.Patch(facecolor="#f3f2ef", edgecolor="#c3c2b7", hatch="////", lw=0.3, label="Not covered"))
-axb.legend(handles=handles, title="Morphological informality (IDEAMAPS class of the 100 m cell)",
-           title_fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.02), ncol=4, fontsize=7,
-           frameon=False, handlelength=1.6, columnspacing=1.4)
-axb.set_title("Morphological informality of 100 m cells (IDEAMAPS)", fontsize=7.5, loc="left", pad=3)
+
+
+def draw_informality(fig, ax, fs: float = 1.0, title: bool = True, pad_like_ward: bool = True) -> None:
+    gpd.GeoSeries([frame.geometry.iloc[0].difference(covered)], crs=CRS_M).plot(
+        ax=ax, facecolor="#f3f2ef", edgecolor="#c3c2b7", lw=0, hatch="////", rasterized=True)
+    for k, (label, colour) in INFORMALITY.items():
+        cells[cells["cls"] == k].plot(ax=ax, facecolor=colour, edgecolor="none", rasterized=True)
+    wards_m.boundary.plot(ax=ax, color="white", lw=0.3, rasterized=True)
+    map_axes(ax, frame)
+    add_places(ax, wards_m, fontsize=5.8 * fs)
+    if pad_like_ward:
+        cb_pad = fig.colorbar(WARD_SM, ax=ax, orientation="horizontal", fraction=0.05, pad=0.02, aspect=30)
+        cb_pad.ax.set_visible(False)  # same map height as the ward panel
+    else:
+        scalebar(ax)
+    handles = [mpl.patches.Patch(facecolor=c, edgecolor="none", label=l) for l, c in INFORMALITY.values()]
+    handles.append(mpl.patches.Patch(facecolor="#f3f2ef", edgecolor="#c3c2b7", hatch="////", lw=0.3, label="Not covered"))
+    ax.legend(handles=handles, title="Morphological informality (IDEAMAPS class of the 100 m cell)",
+              title_fontsize=7 * fs, loc="upper center", bbox_to_anchor=(0.5, -0.02), ncol=4, fontsize=7 * fs,
+              frameon=False, handlelength=1.6, columnspacing=1.4)
+    if title:
+        ax.set_title("Morphological informality of 100 m cells (IDEAMAPS)", fontsize=7.5, loc="left", pad=3)
+
+
+fig, (ax, axb) = plt.subplots(1, 2, figsize=(DOUBLE, 3.25), gridspec_kw={"wspace": 0.04})
+draw_ward_exposure(fig, ax)
+draw_informality(fig, axb)
 panel_label(ax, "a"); panel_label(axb, "b")
 save(fig, "fig3_ward_map")
+
+# The same two maps as figures of their own (full text width, no titles: captions carry them).
+fig, ax = plt.subplots(figsize=(6.5, 4.7))
+draw_ward_exposure(fig, ax, fs=1.25, title=False)
+save(fig, "fig_ward_exposure_map")
+fig, ax = plt.subplots(figsize=(6.5, 4.7))
+draw_informality(fig, ax, fs=1.25, title=False, pad_like_ward=False)
+save(fig, "fig_informality_map")
 
 # ---- Figure 4: wealth and informality -------------------------------------------------------
 fig, axes = plt.subplots(1, 2, figsize=(DOUBLE, 2.4), gridspec_kw={"width_ratios": [5, 3], "wspace": 0.25})

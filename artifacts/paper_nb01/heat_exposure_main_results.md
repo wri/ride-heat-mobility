@@ -38,7 +38,7 @@ Table 1 lists every behavioural rule and parameter of the main run, which agent 
 
 Table: **Table 1.** Agent behaviour as modelled in the main run.
 
-Note. Differs by: the agent attributes a rule depends on; — = the same for every agent. Age changes only children's trips (school only, leaving before 08:00); sex changes nothing. Where a rule depends on purpose, it applies equally to every age and sex (for example, adult students and children both head home from school at 15:30). Calibrated: destination distance decay and the walking-time weight were fitted jointly to the WRI Nairobi rider survey (2023), and with the JICA curves they give a 43% walk share, as reported by Tatah et al. (2023). WRI rider survey: adults 18 and over, bus and matatu riders, weekdays.
+Note. Differs by: the agent attributes a rule depends on; — = the same for every agent. Age changes only children's trips (school only, leaving before 08:00); sex changes nothing. Where a rule depends on purpose, it applies equally to every age and sex (for example, adult students and children both head home from school at 15:30). Calibrated: destination distance decay and the walking-time weight were fitted jointly to the WRI Nairobi rider survey (2023), and with the JICA curves they give a 42% walk share, matching the 42% walking main-mode share of the 2013 JICA household survey (Tatah et al. 2023). WRI rider survey: adults 18 and over, bus and matatu riders, weekdays.
 
 | Group | n | % of agents | Work (%) | School (%) | Market (%) | Other (%) |
 |:---|---:|---:|---:|---:|---:|---:|

@@ -119,7 +119,8 @@ class TravelBehaviorParams:
     # favour nearer destinations (shorter trips); 1.0 = the earlier, uncalibrated rule.
     # 1.5 matches the median time on board (22.7 min) of bus/matatu riders in the WRI
     # rider survey (Q11), jointly with walk_time_weight and the JICA distance-based walk
-    # choice; it also gives 43% of trips walked, as in the 2013 JICA survey — see
+    # choice; it also gives ~42% of trips walked the whole way, matching the 42% walking
+    # main-mode share of the 2013 JICA survey (Tatah et al. 2023) — see
     # calibration.py and docs/methodology/travel-behaviour.md.
     destination_distance_decay: float = 1.5
 
